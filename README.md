@@ -85,7 +85,7 @@ hats run <profile> [-- args]   isolate-launch the profile's command
 hats exec <profile> -- <cmd>   run an arbitrary command with the profile's env
 hats which <profile>       show what it would inject (secrets masked; cmd: not executed)
 hats ls                    list profiles
-hats add                   interactive wizard
+hats add                   interactive wizard (or --template company|kimi|ollama|personal)
 hats setenv <profile>      batch-set env keys from KEY=value lines (stdin or --file)
 hats init                  write an example config to copy from (non-destructive)
 hats rm <profile>          delete a profile (keeps referenced files)
@@ -109,6 +109,13 @@ Values may be plain text or a `file:`/`cmd:`/`env:` reference.
 
 Need a template to copy from? `hats init` writes `~/.config/hats/config.example.toml`
 with the four reference profiles; copy a block into your config and `hats edit`.
+
+### First-run guidance
+
+Running bare `hats` with **no profiles** opens an interactive guide: create from a
+template (e.g. `ollama` — zero typing, no token), seed an example config, or walk
+the wizard. Once you have profiles, bare `hats` prints a friendly summary instead.
+`hats add --template ollama` does the same non-interactively.
 
 ## How isolation works
 

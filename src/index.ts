@@ -9,6 +9,8 @@ import { editCommand } from "./commands/edit.js";
 import { initCommand } from "./commands/init.js";
 import { setenvCommand } from "./commands/setenv.js";
 import { friendlyHint } from "./commands/hint.js";
+import { guideFirstRun } from "./commands/guide.js";
+import { loadConfig } from "./core/config.js";
 
 const program = new Command();
 
@@ -17,8 +19,13 @@ program
   .description("per-terminal / per-process config isolator for Claude Code, Codex, and any CLI")
   .version("0.1.0")
   .action(() => {
-    // bare `hats` → friendly hint (use `hats pick` for the interactive picker)
-    friendlyHint();
+    // bare `hats`: guide onboarding when there are no profiles, else a friendly summary
+    const cfg = loadConfig();
+    if (Object.keys(cfg.profiles).length === 0) {
+      void guideFirstRun();
+    } else {
+      friendlyHint();
+    }
   });
 
 program.addCommand(runCommand);

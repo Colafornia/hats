@@ -4,7 +4,7 @@ import { writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { hatsHome, configPath, saveConfig, defaultConfig } from "../core/config.js";
 
-const EXAMPLE = `# hats example config — copy any [profiles.<name>] block below into config.toml,
+export const EXAMPLE = `# hats example config — copy any [profiles.<name>] block below into config.toml,
 # edit the values, and you're done. Delete what you don't need.
 
 version = 1
