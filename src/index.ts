@@ -6,6 +6,8 @@ import { lsCommand } from "./commands/ls.js";
 import { addCommand } from "./commands/add.js";
 import { rmCommand } from "./commands/rm.js";
 import { editCommand } from "./commands/edit.js";
+import { initCommand } from "./commands/init.js";
+import { setenvCommand } from "./commands/setenv.js";
 
 const program = new Command();
 
@@ -25,6 +27,8 @@ program.addCommand(lsCommand);
 program.addCommand(addCommand);
 program.addCommand(rmCommand);
 program.addCommand(editCommand);
+program.addCommand(initCommand);
+program.addCommand(setenvCommand);
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   const msg = err instanceof Error ? err.message : String(err);

@@ -86,9 +86,29 @@ hats exec <profile> -- <cmd>   run an arbitrary command with the profile's env
 hats which <profile>       show what it would inject (secrets masked; cmd: not executed)
 hats ls                    list profiles
 hats add                   interactive wizard
+hats setenv <profile>      batch-set env keys from KEY=value lines (stdin or --file)
+hats init                  write an example config to copy from (non-destructive)
 hats rm <profile>          delete a profile (keeps referenced files)
 hats edit                  open the config in $EDITOR
 ```
+
+### Fast batch entry (no one-key-at-a-time wizard)
+
+Pipe a `KEY=value` block — `hats setenv` creates the profile if missing and merges keys:
+
+```bash
+hats setenv kimi --launch claude <<'EOF'
+ANTHROPIC_BASE_URL=https://kimi.example
+ANTHROPIC_AUTH_TOKEN=file:~/.config/hats/kimi.token
+CLAUDE_CONFIG_DIR=~/.claude-kimi
+EOF
+```
+
+Or import an existing `.env`: `hats setenv company --file ~/.config/hats/company.env`.
+Values may be plain text or a `file:`/`cmd:`/`env:` reference.
+
+Need a template to copy from? `hats init` writes `~/.config/hats/config.example.toml`
+with the four reference profiles; copy a block into your config and `hats edit`.
 
 ## How isolation works
 
