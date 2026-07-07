@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { runCommand, execCommand, runInteractive } from "./commands/run.js";
+import { runCommand, execCommand, pickCommand } from "./commands/run.js";
 import { whichCommand } from "./commands/which.js";
 import { lsCommand } from "./commands/ls.js";
 import { addCommand } from "./commands/add.js";
@@ -8,6 +8,7 @@ import { rmCommand } from "./commands/rm.js";
 import { editCommand } from "./commands/edit.js";
 import { initCommand } from "./commands/init.js";
 import { setenvCommand } from "./commands/setenv.js";
+import { friendlyHint } from "./commands/hint.js";
 
 const program = new Command();
 
@@ -16,19 +17,20 @@ program
   .description("per-terminal / per-process config isolator for Claude Code, Codex, and any CLI")
   .version("0.1.0")
   .action(() => {
-    // bare `hats` → interactive picker
-    void runInteractive();
+    // bare `hats` → friendly hint (use `hats pick` for the interactive picker)
+    friendlyHint();
   });
 
 program.addCommand(runCommand);
 program.addCommand(execCommand);
+program.addCommand(pickCommand);
 program.addCommand(whichCommand);
 program.addCommand(lsCommand);
 program.addCommand(addCommand);
+program.addCommand(setenvCommand);
+program.addCommand(initCommand);
 program.addCommand(rmCommand);
 program.addCommand(editCommand);
-program.addCommand(initCommand);
-program.addCommand(setenvCommand);
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   const msg = err instanceof Error ? err.message : String(err);

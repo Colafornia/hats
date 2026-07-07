@@ -76,3 +76,9 @@ export async function runInteractive(): Promise<void> {
   const code = await launch(profile, cfg.settings, []);
   process.exit(code);
 }
+
+export const pickCommand = new Command("pick")
+  .description("interactively pick a profile and run it")
+  .action(async () => {
+    await runInteractive();
+  });
