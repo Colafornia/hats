@@ -25,7 +25,7 @@ export async function guideFirstRun(): Promise<void> {
   const choice = await p.select({
     message: "How do you want to start?",
     options: [
-      { value: "template", label: "From a template (company/kimi/ollama/personal) — fastest" },
+      { value: "template", label: "From a template (relay) — fastest" },
       { value: "example", label: "Seed an example config to copy & edit" },
       { value: "wizard", label: "Guided wizard (step by step)" },
       { value: "cancel", label: "Cancel" },

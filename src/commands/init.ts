@@ -4,40 +4,29 @@ import { writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { hatsHome, configPath, saveConfig, defaultConfig } from "../core/config.js";
 
-export const EXAMPLE = `# hats example config — copy any [profiles.<name>] block below into config.toml,
-# edit the values, and you're done. Delete what you don't need.
+export const EXAMPLE = `# hats example config — copy a [profiles.<name>] block into config.toml and edit.
+# These are generic shapes; rename profiles to whatever you like.
 
 version = 1
 [settings]
 inherit_env = true
 
-# ---- company gateway (env_file + file: token + own config dir) ----
-[profiles.company]
-desc = "company gateway"
+# A relay / gateway: point claude at a provider with a token.
+# Credentials stay where they are — hats only references them.
+[profiles.my-relay]
+desc = "example relay"
 launch = "claude"
-env_file = "~/.config/hats/company.env"
-env = { CLAUDE_CONFIG_DIR = "~/.claude-company", ANTHROPIC_AUTH_TOKEN = "file:~/.config/hats/company.token" }
+env = { ANTHROPIC_BASE_URL = "https://your-relay.example", ANTHROPIC_AUTH_TOKEN = "file:~/.config/hats/relay.token", CLAUDE_CONFIG_DIR = "~/.claude-my-relay" }
 
-# ---- kimi (replaces cc switch; own config dir) ----
-[profiles.kimi]
-desc = "kimi coding plan"
-launch = "claude"
-env = { ANTHROPIC_BASE_URL = "https://kimi.example", ANTHROPIC_AUTH_TOKEN = "file:~/.config/hats/kimi.token", CLAUDE_CONFIG_DIR = "~/.claude-kimi" }
-
-# ---- ollama (zero ANTHROPIC residue; inherit_env=false strips a dirty shell) ----
-[profiles.ollama]
-desc = "local ollama"
-launch = "ollama launch claude"
+# A local model: inherit_env=false strips a dirty shell so no ANTHROPIC_* leaks
+# even if your zshrc still exports one.
+[profiles.local]
+desc = "local model"
+launch = "ollama launch claude --model your-model"
 inherit_env = false
-env = { CLAUDE_CONFIG_DIR = "~/.claude-ollama" }
+env = { CLAUDE_CONFIG_DIR = "~/.claude-local" }
 
-# ---- personal (OAuth + Keychain, no plaintext token) ----
-[profiles.personal]
-desc = "personal subscription"
-launch = "claude"
-env = { CLAUDE_CONFIG_DIR = "~/.claude-personal" }
-
-# Value prefixes (credentials stay where they are, hats only references them):
+# Value prefixes (hats never copies credentials, only references):
 #   env:NAME            current env var
 #   file:path           file contents (trimmed)
 #   cmd:<shell command> command stdout (e.g. cmd:op read op://Private/anthropic/token)

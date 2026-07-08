@@ -11,15 +11,19 @@ import { TEMPLATES, TEMPLATE_ORDER, type TemplateKey } from "../core/templates.j
 export async function createFromTemplate(presetKey?: TemplateKey): Promise<string | null> {
   let tkey = presetKey;
   if (!tkey) {
-    const picked = await p.select({
-      message: "Which hat?",
-      options: TEMPLATE_ORDER.map((k) => ({ value: k, label: TEMPLATES[k].label })),
-    });
-    if (p.isCancel(picked)) {
-      p.cancel("cancelled");
-      return null;
+    if (TEMPLATE_ORDER.length === 1) {
+      tkey = TEMPLATE_ORDER[0];
+    } else {
+      const picked = await p.select({
+        message: "Which hat?",
+        options: TEMPLATE_ORDER.map((k) => ({ value: k, label: TEMPLATES[k].label })),
+      });
+      if (p.isCancel(picked)) {
+        p.cancel("cancelled");
+        return null;
+      }
+      tkey = picked as TemplateKey;
     }
-    tkey = picked as TemplateKey;
   }
 
   const t = TEMPLATES[tkey];

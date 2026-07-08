@@ -3,7 +3,7 @@ import * as p from "@clack/prompts";
 import { loadConfig, saveConfig, type Profile } from "../core/config.js";
 import { profileNames } from "../core/profile.js";
 import { createFromTemplate } from "./create.js";
-import type { TemplateKey } from "../core/templates.js";
+import { TEMPLATE_ORDER, type TemplateKey } from "../core/templates.js";
 
 /** Reusable guided wizard that creates one profile. Returns name or null. */
 export async function addProfileInteractive(): Promise<string | null> {
@@ -13,7 +13,7 @@ export async function addProfileInteractive(): Promise<string | null> {
   const group = await p.group({
     name: () =>
       p.text({
-        message: "Profile name (e.g. company / kimi / ollama / personal)",
+        message: "Profile name (e.g. my-relay / local / work)",
         validate: (v) => {
           if (!v.trim()) return "required";
           if (existing.has(v.trim())) return "already exists";
@@ -77,11 +77,11 @@ export async function addProfileInteractive(): Promise<string | null> {
 
 export const addCommand = new Command("add")
   .description("interactively create a profile")
-  .option("-t, --template <name>", "create from a built-in template (company|kimi|ollama|personal)")
+  .option("-t, --template <name>", "create from a built-in template (relay)")
   .action(async (opts: { template?: string }) => {
     if (opts.template) {
-      const valid = ["company", "kimi", "ollama", "personal"];
-      if (!valid.includes(opts.template)) {
+      const valid = TEMPLATE_ORDER;
+      if (!valid.includes(opts.template as TemplateKey)) {
         p.log.error(`unknown template "${opts.template}". choices: ${valid.join(", ")}`);
         process.exit(1);
       }

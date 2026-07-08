@@ -43,7 +43,7 @@ export function resolveForRun(v: string): string {
 export interface DisplayValue {
   /** What to show in `which` — masked for any reference, raw for plain. */
   display: string;
-  /** Human-readable source, e.g. `file:~/.config/hats/kimi.token`. */
+  /** Human-readable source, e.g. `file:~/.config/hats/relay.token`. */
   source: string;
   /** Whether the underlying value came from a reference (potentially secret). */
   isRef: boolean;
