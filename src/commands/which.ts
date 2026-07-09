@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { loadConfig } from "../core/config.js";
 import { getProfile } from "../core/profile.js";
 import { describeForDisplay } from "../core/resolve.js";
+import { STRIP_PREFIXES } from "../core/env.js";
 
 export const whichCommand = new Command("which")
   .description("show what a profile would inject (secrets masked, cmd: not executed)")
@@ -13,10 +14,8 @@ export const whichCommand = new Command("which")
     const lines: string[] = [];
     lines.push(`profile: ${name}`);
     if (profile.desc) lines.push(`desc:    ${profile.desc}`);
-    lines.push(`kind:    ${profile.kind ?? "cli"}`);
-    if (profile.cwd) lines.push(`cwd:     ${profile.cwd}`);
     if (profile.launch) lines.push(`launch:  ${profile.launch}`);
-    lines.push(`inherit: ${profile.inherit_env ?? cfg.settings.inherit_env ?? true}`);
+    lines.push(`strips:  ${STRIP_PREFIXES.join(", ")} (from inherited env)`);
 
     if (profile.env_file) {
       const files = Array.isArray(profile.env_file) ? profile.env_file : [profile.env_file];
@@ -27,10 +26,12 @@ export const whichCommand = new Command("which")
       lines.push("");
       lines.push("env:");
       for (const [k, v] of Object.entries(profile.env)) {
-        const d = describeForDisplay(v);
+        const d = describeForDisplay(v, k);
         const src = d.isRef ? `  (${d.source})` : "";
         lines.push(`  ${k} = ${d.display}${src}`);
       }
+    } else if (profile.env_file) {
+      lines.push("env: (no inline keys — values come from env_file above)");
     } else {
       lines.push("env: (none — zero-injection profile)");
     }

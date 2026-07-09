@@ -1,8 +1,10 @@
 import { loadConfig } from "../core/config.js";
 
 /**
- * Friendly summary shown for bare `hats` when profiles already exist.
- * (When there are no profiles, the index action routes to `guideFirstRun`.)
+ * Non-interactive summary for bare `hats` (no subcommand). When there are no
+ * profiles, hint at the first-run commands; otherwise list profiles and hint at
+ * `hats run <name>`. No interactive picker — switching is always an explicit
+ * `hats run <name>`.
  */
 export function friendlyHint(): void {
   const cfg = loadConfig();
@@ -12,16 +14,24 @@ export function friendlyHint(): void {
 
   lines.push(`${c("🎩 hats")} — switch CLI configs per-terminal without polluting your shell.`);
   lines.push("");
-  lines.push(`${c("Your profiles:")}`);
-  for (const n of names) {
-    const p = cfg.profiles[n];
-    const d = p.desc ? ` — ${p.desc}` : "";
-    lines.push(`  ${n}${d}`);
+
+  if (names.length === 0) {
+    lines.push(`No profiles yet. Create one:`);
+    lines.push(`  ${c("hats add")}                       thin interactive wizard`);
+    lines.push(`  ${c("hats add <name> <cmd> [--home]")}  non-interactive`);
+    lines.push(`  ${c("hats init")}                      write an example config to copy from`);
+  } else {
+    lines.push(`${c("Your profiles:")}`);
+    for (const n of names) {
+      const p = cfg.profiles[n];
+      const d = p.desc ? ` — ${p.desc}` : "";
+      lines.push(`  ${n}${d}`);
+    }
+    lines.push("");
+    lines.push(`${c("Run one:")}   hats run <profile>`);
+    lines.push(`${c("Inspect:")}   hats which <profile>   ·   ${c("list:")} hats ls`);
   }
-  lines.push("");
-  lines.push(`${c("Run one:")}    hats run <profile>`);
-  lines.push(`${c("Pick one:")}   hats pick`);
-  lines.push(`${c("Inspect:")}    hats which <profile>   ·   ${c("list:")} hats ls`);
+
   lines.push("");
   lines.push(`Full command list: ${c("hats -h")}`);
   // eslint-disable-next-line no-console

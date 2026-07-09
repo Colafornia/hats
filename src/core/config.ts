@@ -9,18 +9,10 @@ export interface Profile {
   env_file?: string | string[];
   env?: Record<string, string>;
   launch?: string;
-  kind?: "cli" | "gui";
-  cwd?: string;
-  inherit_env?: boolean;
-}
-
-export interface Settings {
-  inherit_env?: boolean;
 }
 
 export interface HatsConfig {
   version: number;
-  settings: Settings;
   profiles: Record<string, Profile>;
 }
 
@@ -33,7 +25,7 @@ export function configPath(): string {
 }
 
 export function defaultConfig(): HatsConfig {
-  return { version: 1, settings: { inherit_env: true }, profiles: {} };
+  return { version: 1, profiles: {} };
 }
 
 export function loadConfig(): HatsConfig {
@@ -47,7 +39,6 @@ export function loadConfig(): HatsConfig {
   }
   return {
     version: (raw.version as number) ?? 1,
-    settings: (raw.settings as Settings) ?? {},
     profiles,
   };
 }
@@ -56,7 +47,6 @@ export function saveConfig(cfg: HatsConfig): void {
   mkdirSync(hatsHome(), { recursive: true });
   const out: Record<string, unknown> = {
     version: cfg.version,
-    settings: cfg.settings,
     profiles: {} as Record<string, unknown>,
   };
   for (const [name, p] of Object.entries(cfg.profiles)) {

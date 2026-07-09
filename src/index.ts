@@ -3,7 +3,7 @@ import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { runCommand, execCommand, pickCommand } from "./commands/run.js";
+import { runCommand, execCommand } from "./commands/run.js";
 import { whichCommand } from "./commands/which.js";
 import { lsCommand } from "./commands/ls.js";
 import { addCommand } from "./commands/add.js";
@@ -12,8 +12,6 @@ import { editCommand } from "./commands/edit.js";
 import { initCommand } from "./commands/init.js";
 import { setenvCommand } from "./commands/setenv.js";
 import { friendlyHint } from "./commands/hint.js";
-import { guideFirstRun } from "./commands/guide.js";
-import { loadConfig } from "./core/config.js";
 
 const program = new Command();
 
@@ -28,18 +26,12 @@ program
   .description("per-terminal / per-process config isolator for Claude Code, Codex, and any CLI")
   .version(pkgVersion)
   .action(() => {
-    // bare `hats`: guide onboarding when there are no profiles, else a friendly summary
-    const cfg = loadConfig();
-    if (Object.keys(cfg.profiles).length === 0) {
-      void guideFirstRun();
-    } else {
-      friendlyHint();
-    }
+    // bare `hats`: non-interactive summary / first-run hint (no picker).
+    friendlyHint();
   });
 
 program.addCommand(runCommand);
 program.addCommand(execCommand);
-program.addCommand(pickCommand);
 program.addCommand(whichCommand);
 program.addCommand(lsCommand);
 program.addCommand(addCommand);

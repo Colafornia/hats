@@ -8,23 +8,36 @@ export const EXAMPLE = `# hats example config — copy a [profiles.<name>] block
 # These are generic shapes; rename profiles to whatever you like.
 
 version = 1
-[settings]
-inherit_env = true
+
+# Official Codex, one account, shared default login (~/.codex).
+# Created with: hats add codex codex
+[profiles.codex]
+launch = "codex"
+
+# Official Codex, isolated login/config home (separate OAuth account).
+# Created with: hats add codex-personal codex --home
+# hats infers CODEX_HOME from the launch first token; the path lives under
+# ~/.config/hats/homes/<name> (i.e. $HATS_HOME/homes/<name>).
+[profiles.codex-personal]
+launch = "codex"
+env = { CODEX_HOME = "~/.config/hats/homes/codex-personal" }
 
 # A relay / gateway: point claude at a provider with a token.
-# Credentials stay where they are — hats only references them.
-[profiles.my-relay]
-desc = "example relay"
+# Credentials stay where they are — hats only references them (file:/env:/cmd:).
+# By default the relay shares your normal ~/.claude (MCP, history, settings).
+# Created with:  hats add company-claude claude   then   hats edit  (paste env below)
+[profiles.company-claude]
+desc = "company gateway"
 launch = "claude"
-env = { ANTHROPIC_BASE_URL = "https://your-relay.example", ANTHROPIC_AUTH_TOKEN = "file:~/.config/hats/relay.token", CLAUDE_CONFIG_DIR = "~/.claude-my-relay" }
+env = { ANTHROPIC_BASE_URL = "https://gateway.example", ANTHROPIC_AUTH_TOKEN = "file:~/.config/hats/relay.token" }
 
-# A local model: inherit_env=false strips a dirty shell so no ANTHROPIC_* leaks
-# even if your zshrc still exports one.
-[profiles.local]
+# A local model. hats always strips stray ANTHROPIC_*/CLAUDE_*/CODEX_*/OPENAI_*/GEMINI_*/GOOGLE_*
+# from the inherited env, so a leftover \`export ANTHROPIC_*\` in your zshrc can't
+# leak in here — no per-profile toggle needed.
+# Created with: hats add local-claude ollama launch claude --model qwen
+[profiles.local-claude]
 desc = "local model"
-launch = "ollama launch claude --model your-model"
-inherit_env = false
-env = { CLAUDE_CONFIG_DIR = "~/.claude-local" }
+launch = "ollama launch claude --model qwen"
 
 # Value prefixes (hats never copies credentials, only references):
 #   env:NAME            current env var

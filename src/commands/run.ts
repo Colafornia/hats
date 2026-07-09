@@ -1,28 +1,25 @@
 import { Command } from "commander";
-import { loadConfig, type Profile, type Settings } from "../core/config.js";
+import { loadConfig, type Profile } from "../core/config.js";
 import { getProfile } from "../core/profile.js";
 import { assembleEnv } from "../core/env.js";
 import { parseLaunch, runChild } from "../core/spawn.js";
-import { expandTilde } from "../core/resolve.js";
-import { pickProfileInteractive } from "./interactive.js";
 
-function banner(profile: Profile, env: { clean: boolean; configDir?: string }): void {
+function banner(profile: Profile, env: { configDir?: string; stripped: string[] }): void {
   const parts: string[] = [`🎩 ${profile.name}`];
   if (profile.desc) parts.push(profile.desc);
-  parts.push(env.clean ? "clean env" : "inheriting env");
-  if (env.configDir) parts.push(`config: ${env.configDir}`);
+  parts.push(`config: ${env.configDir ?? "(default)"}`);
+  if (env.stripped.length) parts.push(`stripped ${env.stripped.length}`);
   // eslint-disable-next-line no-console
   console.error(`\x1b[36m${parts.join(" · ")}\x1b[0m`);
 }
 
 async function launch(
   profile: Profile,
-  settings: Settings,
   extraArgs: string[],
   override?: string[],
 ): Promise<number> {
-  const { env, ...summary } = await assembleEnv(profile, settings);
-  banner(profile, { clean: summary.clean, configDir: summary.configDir });
+  const { env, ...summary } = await assembleEnv(profile);
+  banner(profile, { configDir: summary.configDir, stripped: summary.stripped });
 
   let argv: string[];
   if (override && override.length) {
@@ -34,8 +31,7 @@ async function launch(
   }
   argv = [...argv, ...extraArgs];
 
-  const cwd = profile.cwd ? expandTilde(profile.cwd) : undefined;
-  return runChild(argv, { env, cwd });
+  return runChild(argv, { env });
 }
 
 export const runCommand = new Command("run")
@@ -46,7 +42,7 @@ export const runCommand = new Command("run")
   .action(async (name: string, args: string[]) => {
     const cfg = loadConfig();
     const profile = getProfile(cfg, name);
-    const code = await launch(profile, cfg.settings, args);
+    const code = await launch(profile, args);
     process.exit(code);
   });
 
@@ -63,22 +59,6 @@ export const execCommand = new Command("exec")
       console.error("exec requires a command. Usage: hats exec <profile> -- <cmd> [args...]");
       process.exit(2);
     }
-    const code = await launch(profile, cfg.settings, [], args);
+    const code = await launch(profile, [], args);
     process.exit(code);
-  });
-
-/** Bare `hats` (no subcommand) → interactive picker → run. */
-export async function runInteractive(): Promise<void> {
-  const cfg = loadConfig();
-  const name = await pickProfileInteractive(cfg);
-  if (!name) return;
-  const profile = getProfile(cfg, name);
-  const code = await launch(profile, cfg.settings, []);
-  process.exit(code);
-}
-
-export const pickCommand = new Command("pick")
-  .description("interactively pick a profile and run it")
-  .action(async () => {
-    await runInteractive();
   });

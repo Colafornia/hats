@@ -5,6 +5,14 @@ import { join } from "node:path";
 
 export type RefKind = "plain" | "env" | "file" | "cmd";
 
+/** Key-name pattern that marks a value as a secret worth masking in listings/inspectors. */
+const SECRET_KEY_RE = /(?:^|_)(KEY|TOKEN|SECRET|PASSWD|PASSWORD|CREDENTIAL|AUTH)(?:_|$)/i;
+
+/** True if the env var name looks like it holds a secret (OPENAI_API_KEY, *_AUTH_TOKEN, …). */
+export function looksSecret(key: string): boolean {
+  return SECRET_KEY_RE.test(key);
+}
+
 export function refKind(v: string): RefKind {
   if (v.startsWith("env:")) return "env";
   if (v.startsWith("file:")) return "file";
@@ -50,12 +58,19 @@ export interface DisplayValue {
 }
 
 /**
- * Describe a value for `which` WITHOUT executing `cmd:` (avoids e.g. 1Password
+ * Describe a value for display WITHOUT executing `cmd:` (avoids e.g. 1Password
  * biometric prompts on a read-only inspection). References are masked to `****`.
+ * A plaintext value is masked too when its key name looks like a secret
+ * (pass `key` for that check); otherwise shown raw (e.g. ANTHROPIC_BASE_URL).
  */
-export function describeForDisplay(v: string): DisplayValue {
+export function describeForDisplay(v: string, key?: string): DisplayValue {
   const k = refKind(v);
-  if (k === "plain") return { display: v, source: "plain", isRef: false };
+  if (k === "plain") {
+    if (key && looksSecret(key)) {
+      return { display: "****", source: "plain (secret)", isRef: false };
+    }
+    return { display: v, source: "plain", isRef: false };
+  }
   const arg = v.slice(k.length + 1);
   return { display: "****", source: `${k}:${arg}`, isRef: true };
 }

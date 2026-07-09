@@ -1,92 +1,92 @@
 import { Command } from "commander";
 import * as p from "@clack/prompts";
+import { quote } from "shell-quote";
 import { loadConfig, saveConfig, type Profile } from "../core/config.js";
-import { profileNames } from "../core/profile.js";
-import { createFromTemplate } from "./create.js";
-import { TEMPLATE_ORDER, type TemplateKey } from "../core/templates.js";
+import { profileNames, resolveConfigHome, ProfileError } from "../core/profile.js";
+import { openConfigEditor } from "./edit.js";
 
-/** Reusable guided wizard that creates one profile. Returns name or null. */
-export async function addProfileInteractive(): Promise<string | null> {
+/** Non-interactive: `hats add <name> <command...> [--home]`. */
+function addPositional(name: string, command: string[], opts: { home?: boolean }): void {
+  if (!command.length) {
+    p.log.error("launch command required. Usage: hats add <name> <command...> [--home]");
+    process.exit(1);
+  }
+  // Serialize argv back to a single launch string, re-quoting tokens that need it
+  // (e.g. `--model "gpt 5"`) so parseLaunch() round-trips it to the same argv later.
+  const launch = quote(command);
+  const profile: Profile = { name, launch };
+  if (opts.home) {
+    const { varName, path } = resolveConfigHome(name, launch);
+    profile.env = { [varName]: path };
+  }
+  const cfg = loadConfig();
+  if (cfg.profiles[name]) {
+    p.log.error(`profile "${name}" already exists`);
+    process.exit(1);
+  }
+  cfg.profiles[name] = profile;
+  saveConfig(cfg);
+  p.log.success(`created profile "${name}"${opts.home ? ` · config: ${profile.env && Object.values(profile.env)[0]}` : ""}`);
+}
+
+/** Thin interactive wizard: 3 questions + optional "open editor to add env". */
+async function addInteractive(): Promise<void> {
   const cfg = loadConfig();
   const existing = new Set(profileNames(cfg));
 
-  const group = await p.group({
-    name: () =>
-      p.text({
-        message: "Profile name (e.g. my-relay / local / work)",
-        validate: (v) => {
-          if (!v.trim()) return "required";
-          if (existing.has(v.trim())) return "already exists";
-          if (!/^[A-Za-z0-9_-]+$/.test(v.trim())) return "letters, digits, _ or - only";
-        },
-      }),
-    desc: () => p.text({ message: "Description (optional)", defaultValue: "" }),
-    launch: () => p.text({ message: "Launch command (e.g. claude / ollama launch claude)", defaultValue: "" }),
-    kind: () =>
-      p.select({
-        message: "Kind",
-        options: [
-          { value: "cli", label: "cli" },
-          { value: "gui", label: "gui" },
-        ],
-      }) as Promise<"cli" | "gui">,
-    inheritEnv: () => p.confirm({ message: "Inherit current shell env?", initialValue: true }),
+  const name = await p.text({
+    message: "Hat name",
+    validate: (v) => {
+      const t = v.trim();
+      if (!t) return "required";
+      if (existing.has(t)) return "already exists";
+      if (!/^[A-Za-z0-9_-]+$/.test(t)) return "letters, digits, _ or - only";
+    },
   });
+  if (p.isCancel(name)) return p.cancel("cancelled");
 
-  if (p.isCancel(group)) {
-    p.cancel("cancelled");
-    return null;
-  }
+  const launch = await p.text({
+    message: "Launch command (e.g. codex / claude / ollama launch claude)",
+    validate: (v) => (v.trim() ? undefined : "required"),
+  });
+  if (p.isCancel(launch)) return p.cancel("cancelled");
 
-  const envEntries: Record<string, string> = {};
-  let addEnv = true;
-  while (addEnv) {
-    const key = await p.text({ message: "Env key (blank to stop adding)", defaultValue: "" });
-    if (p.isCancel(key) || !key) {
-      addEnv = false;
-      break;
+  let useHome = false;
+  try {
+    // Probe inference first so we can warn early if --home won't work for this launch.
+    resolveConfigHome(name as string, launch as string);
+    const ans = await p.confirm({ message: "Use separate login for this hat?", initialValue: false });
+    if (p.isCancel(ans)) return p.cancel("cancelled");
+    useHome = ans;
+  } catch (e) {
+    if (e instanceof ProfileError) {
+      p.log.warn(`skipping isolated home: ${e.message}`);
+    } else {
+      throw e;
     }
-    const val = await p.text({
-      message: `Value for ${key} (plain text, or file:/cmd:/env: reference)`,
-      validate: (v) => (v ? undefined : "required"),
-    });
-    if (p.isCancel(val)) break;
-    envEntries[key] = val;
   }
 
-  const envFile = await p.text({
-    message: "env_file path (optional, blank to skip)",
-    defaultValue: "",
-  });
-
-  const profile: Profile = {
-    name: group.name as string,
-    desc: (group.desc as string) || undefined,
-    launch: (group.launch as string) || undefined,
-    kind: group.kind,
-    inherit_env: group.inheritEnv as boolean,
-    env: Object.keys(envEntries).length ? envEntries : undefined,
-    env_file: (envFile as string) || undefined,
-  };
-
+  const profile: Profile = { name: name as string, launch: launch as string };
+  if (useHome) {
+    const { varName, path } = resolveConfigHome(name as string, launch as string);
+    profile.env = { [varName]: path };
+  }
   cfg.profiles[profile.name] = profile;
   saveConfig(cfg);
   p.log.success(`created profile "${profile.name}"`);
-  return profile.name;
+
+  const editNow = await p.confirm({ message: "Open config to add env vars now?", initialValue: false });
+  if (p.isCancel(editNow)) return;
+  if (editNow) openConfigEditor();
 }
 
 export const addCommand = new Command("add")
-  .description("interactively create a profile")
-  .option("-t, --template <name>", "create from a built-in template (relay)")
-  .action(async (opts: { template?: string }) => {
-    if (opts.template) {
-      const valid = TEMPLATE_ORDER;
-      if (!valid.includes(opts.template as TemplateKey)) {
-        p.log.error(`unknown template "${opts.template}". choices: ${valid.join(", ")}`);
-        process.exit(1);
-      }
-      await createFromTemplate(opts.template as TemplateKey);
-      return;
-    }
-    await addProfileInteractive();
+  .description("create a hat: `hats add <name> <command...> [--home]` (or bare `hats add` for a thin wizard)")
+  .argument("[name]", "profile name")
+  .argument("[command...]", "launch command (variadic)")
+  .option("--home", "isolate this hat's config home (infer CODEX_HOME/CLAUDE_CONFIG_DIR/GEMINI_CLI_HOME)")
+  .allowUnknownOption() // let launch flags (e.g. --model) pass through into the variadic command
+  .action(async (name: string | undefined, command: string[], opts: { home?: boolean }) => {
+    if (name === undefined) await addInteractive();
+    else addPositional(name, command, opts);
   });
