@@ -15,11 +15,20 @@ import { friendlyHint } from "./commands/hint.js";
 
 const program = new Command();
 
-// Single source of truth for the version: package.json. Resolved relative to
-// this file so it works under both tsx (src/) and the built bundle (dist/).
-const pkgVersion: string = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8"),
-).version;
+// Version: read from the adjacent package.json when available (works under
+// tsx and the dist/ bundle). Under a Bun `--compile` binary there is no
+// package.json next to the executable, so fall back to HATS_VERSION, which
+// the release workflow bakes in at compile time via `--define`.
+function readVersion(): string {
+  try {
+    return JSON.parse(
+      readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8"),
+    ).version as string;
+  } catch {
+    return process.env.HATS_VERSION ?? "0.0.0-dev";
+  }
+}
+const pkgVersion = readVersion();
 
 program
   .name("hats")

@@ -1,0 +1,190 @@
+name: release
+
+# Produces per-platform self-contained binaries (Bun `--compile`, no Node needed
+# at runtime) on every `v*` tag, attaches them to a GitHub Release, and
+# regenerates a Homebrew tap formula (if HOMEBREW_TAP_TOKEN is set).
+#
+# Local smoke test before pushing a tag:
+#   bun build --compile --define 'process.env.HATS_VERSION="0.1.0"' src/index.ts --outfile hats
+#   ./hats --version && ./hats ls && ./hats which rc
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to bake (without leading v) — build only, no release'
+        required: false
+
+permissions:
+  contents: write   # create the GitHub Release and upload assets
+
+env:
+  BUN_VERSION: '1.3.11'
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # native builds on matching runners so each can be smoke-tested
+          - { os: macos-14,      target: darwin-arm64, smoke: true }
+          - { os: macos-13,      target: darwin-x64,   smoke: true }
+          - { os: ubuntu-latest, target: linux-x64,    smoke: true }
+          - { os: ubuntu-latest, target: linux-arm64,  smoke: false }   # cross-arch, not exec'd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+      - name: Resolve version
+        id: ver
+        run: |
+          v="${{ github.event.inputs.version }}"
+          if [ -z "$v" ]; then v="${GITHUB_REF_NAME#v}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Compile ${{ matrix.target }}
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          mkdir -p build
+          bun build --compile \
+            --define "process.env.HATS_VERSION=\"${VERSION}\"" \
+            --target=bun-${{ matrix.target }} \
+            --outfile=build/hats \
+            src/index.ts
+
+      - name: Smoke test (native)
+        if: matrix.smoke
+        run: |
+          chmod +x build/hats
+          ./build/hats --version
+          ./build/hats ls >/dev/null
+          ./build/hats which rc >/dev/null || true   # rc may not exist in CI
+
+      - name: Package tarball
+        run: |
+          (cd build && tar czf ../hats-${{ matrix.target }}.tar.gz hats)
+          # `shasum -a 256` (Perl script) is present on both macOS and Ubuntu;
+          # `sha256sum` is coreutils-only and missing on macOS runners.
+          shasum -a 256 hats-${{ matrix.target }}.tar.gz | tee hats-${{ matrix.target }}.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hats-${{ matrix.target }}
+          path: |
+            hats-${{ matrix.target }}.tar.gz
+            hats-${{ matrix.target }}.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    name: publish release + homebrew tap
+    needs: build
+    runs-on: ubuntu-latest
+    # only create a release for real tag pushes (workflow_dispatch just builds)
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Stage assets
+        id: assets
+        run: |
+          mkdir -p release
+          find artifacts -name '*.tar.gz' -exec cp {} release/ \;
+          # one combined checksum file listing all tarballs
+          cat artifacts/*/*.sha256 | sort -u > release/SHA256SUMS
+          (cd release && shasum -a 256 -c SHA256SUMS)
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            release/*.tar.gz
+            release/SHA256SUMS
+
+      - name: Update Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.assets.outputs.version }}
+        run: |
+          if [ -z "${TAP_TOKEN:-}" ]; then
+            echo "::notice::HOMEBREW_TAP_TOKEN not set — skipping Homebrew tap update."
+            echo "Create a separate repo '<owner>/homebrew-tap' and a PAT secret to enable 'brew install <owner>/tap/hats'."
+            exit 0
+          fi
+
+          REPO="${GITHUB_REPOSITORY}"                       # e.g. colafornia/hats
+          OWNER="${GITHUB_REPOSITORY_OWNER}"                # e.g. colafornia
+          BASE="https://github.com/${REPO}/releases/download/v${VERSION}"
+          sha() { grep "hats-$1.tar.gz" release/SHA256SUMS | awk '{print $1}'; }
+
+          cat > hats.rb <<EOF
+          class Hats < Formula
+            desc "Per-terminal / per-process config isolator for Claude Code, Codex, and any CLI"
+            homepage "https://github.com/${REPO}"
+            version "${VERSION}"
+
+            on_macos do
+              on_arm do
+                url "${BASE}/hats-darwin-arm64.tar.gz"
+                sha256 "$(sha darwin-arm64)"
+              end
+              on_intel do
+                url "${BASE}/hats-darwin-x64.tar.gz"
+                sha256 "$(sha darwin-x64)"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "${BASE}/hats-linux-arm64.tar.gz"
+                sha256 "$(sha linux-arm64)"
+              end
+              on_intel do
+                url "${BASE}/hats-linux-x64.tar.gz"
+                sha256 "$(sha linux-x64)"
+              end
+            end
+
+            def install
+              bin.install "hats"
+            end
+
+            test do
+              assert_match version, shell_output("#{bin}/hats --version")
+            end
+          end
+          EOF
+
+          # `HEAD:main` works whether the tap repo is empty (unborn HEAD after
+          # clone) or already has a main branch — a bare `git push` would fail on
+          # an empty repo with no upstream.
+          git clone --depth=1 "https://x-access-token:${TAP_TOKEN}@github.com/${OWNER}/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp hats.rb tap/Formula/hats.rb
+          cd tap
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git add Formula/hats.rb
+          git commit -m "hats ${VERSION}"
+          git push origin HEAD:main
