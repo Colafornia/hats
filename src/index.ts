@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { runCommand, execCommand, pickCommand } from "./commands/run.js";
 import { whichCommand } from "./commands/which.js";
 import { lsCommand } from "./commands/ls.js";
@@ -14,10 +17,16 @@ import { loadConfig } from "./core/config.js";
 
 const program = new Command();
 
+// Single source of truth for the version: package.json. Resolved relative to
+// this file so it works under both tsx (src/) and the built bundle (dist/).
+const pkgVersion: string = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8"),
+).version;
+
 program
   .name("hats")
   .description("per-terminal / per-process config isolator for Claude Code, Codex, and any CLI")
-  .version("0.1.0")
+  .version(pkgVersion)
   .action(() => {
     // bare `hats`: guide onboarding when there are no profiles, else a friendly summary
     const cfg = loadConfig();
