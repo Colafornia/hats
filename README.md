@@ -1,130 +1,131 @@
-# hats
+<p align="center">
+  <img src="assets/hats.png" width="112" alt="hats logo">
+</p>
 
-A per-terminal / per-process **config isolator** for Claude Code, Codex, and any CLI.
-Switch "hats" (provider / gateway / account / local model) without polluting your shell.
+<h1 align="center">hats</h1>
 
+<p align="center">Run Claude Code, Codex, and Gemini profiles side by side.</p>
+
+<p align="center">
+  <a href="#install"><img src="https://img.shields.io/badge/install-Homebrew-FBB040?logo=homebrew&logoColor=111827" alt="Install with Homebrew"></a>
+  <a href="https://github.com/Colafornia/hats/actions/workflows/ci.yml"><img src="https://github.com/Colafornia/hats/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
+
+`hats` runs each profile in a clean child process. Use a company gateway in one
+terminal, a personal subscription in another, and a local model in a third. It does
+not switch global providers, pollute your shell, or copy credentials.
+
+```bash
+hats run work      # one terminal
+hats run personal  # another terminal
 ```
-hats run my-relay     # launch `claude` against a relay, isolated env, zero shell residue
-hats run local        # launch `ollama launch claude ...` with a stripped, ANTHROPIC-free env
-hats exec my-relay -- printenv ANTHROPIC_BASE_URL   # use the profile's env for any command
-hats                  # interactive picker
+
+## Install
+
+```bash
+brew install colafornia/tap/hats
 ```
 
-Each invocation is a one-shot, isolated child process. Your current shell never gets
-the credentials, `ANTHROPIC_*`, or `CODEX_*` — so two terminals in the same directory
-can run different hats at the same time without interfering.
+hats ships as a standalone binary. No Node.js or Bun required.
+
+## Quick Start
+
+Create your first hat with the interactive setup:
+
+```bash
+hats add
+```
+
+Then run the name you chose with `hats run <name>`.
 
 ## Why
 
-The alternatives all force a **global** switch (CC Switch / aiswitch), are
-**directory-bound** (direnv), or only cover one tool. `hats` is the missing
-combination: arbitrary CLI + per-terminal isolation + zero residue.
+Most AI CLI switchers mutate global state: they export provider env vars, rewrite shared
+tool config, or silently change what every terminal will use next. That breaks down when
+you need more than one setup open at once.
 
-The hard part isn't env injection — it's that tools like `ollama launch claude`
-can't coexist with a CC Switch profile, because CC Switch writes the shared
-`~/.claude` config. `hats` fixes that by giving each hat its own
-`CLAUDE_CONFIG_DIR` / `CODEX_HOME`.
-
-## Install (local dogfood)
+`hats` makes the switch explicit:
 
 ```bash
-git clone <this repo> && cd hats
-npm install
-npm link          # makes `hats` available globally
+hats run company-claude
+hats run personal-codex
+hats run local-claude
 ```
 
-## Config
+Each command creates one isolated child process. The parent shell keeps none of the
+profile's credentials, `ANTHROPIC_*`, `OPENAI_*`, or `CODEX_*` values.
 
-`~/.config/hats/config.toml` (override with `$HATS_HOME`):
+Use hats when you want to:
 
-```toml
-version = 1
-[settings]
-inherit_env = true
+- run multiple AI coding subscriptions or OAuth accounts at the same time
+- keep company gateways, personal accounts, and local models from leaking into each other
+- replace global switchers that rewrite shared `~/.claude` or `~/.codex` config
+- launch any CLI with one profile and zero residue in the current shell
 
-# A relay / gateway: point claude at a provider with a token.
-[profiles.my-relay]
-desc = "example relay"
-launch = "claude"
-env = { ANTHROPIC_BASE_URL = "https://your-relay.example", ANTHROPIC_AUTH_TOKEN = "file:~/.config/hats/relay.token", CLAUDE_CONFIG_DIR = "~/.claude-my-relay" }
+## Common Setups
 
-# A local model: inherit_env=false strips a dirty shell so no ANTHROPIC_* leaks.
-[profiles.local]
-desc = "local model"
-launch = "ollama launch claude --model your-model"
-inherit_env = false                                  # hard guarantee: strips even a dirty shell
-env = { CLAUDE_CONFIG_DIR = "~/.claude-local" }
+### Codex official subscription
+
+Use your normal `~/.codex` login:
+
+```bash
+hats add codex codex
+hats run codex
 ```
 
-### Value references (credentials stay where they are)
+### Multiple Codex accounts
 
-| prefix | source |
-|---|---|
-| `env:NAME` | current environment variable |
-| `file:path` | file contents (trimmed) |
-| `cmd:<shell>` | command stdout (e.g. `cmd:op read op://Private/anthropic/token`) |
-| *(none)* | plaintext |
+Use a second Codex or ChatGPT account without touching the default `~/.codex`:
 
-`hats` does **not** copy credentials into its own storage. `rm` only deletes the
-profile entry, never the referenced files.
+```bash
+hats add codex-personal codex --home
+hats run codex-personal login
+hats run codex-personal
+```
+
+`--home` gives this hat its own CLI home under `~/.config/hats/homes/<name>`.
+
+See [Advanced configuration](docs/advanced.md) for gateways, local models, shared env
+files, and hand-written config.
 
 ## Commands
 
-```
-hats                       interactive picker
-hats run <profile> [-- args]   isolate-launch the profile's command
-hats exec <profile> -- <cmd>   run an arbitrary command with the profile's env
-hats which <profile>       show what it would inject (secrets masked; cmd: not executed)
-hats ls                    list profiles
-hats add                   interactive wizard (or --template relay)
-hats setenv <profile>      batch-set env keys from KEY=value lines (stdin or --file)
-hats init                  write an example config to copy from (non-destructive)
-hats rm <profile>          delete a profile (keeps referenced files)
-hats edit                  open the config in $EDITOR
+### Start here
+
+```text
+hats add [<name> <command...>]    create a hat
+hats run <profile> [args...]      run the profile's launch command
+hats edit                         open the config in $EDITOR
+hats ls                           list profiles
 ```
 
-### Fast batch entry (no one-key-at-a-time wizard)
+<details>
+<summary>More</summary>
 
-Pipe a `KEY=value` block — `hats setenv` creates the profile if missing and merges keys:
-
-```bash
-hats setenv my-relay --launch claude <<'EOF'
-ANTHROPIC_BASE_URL=https://your-relay.example
-ANTHROPIC_AUTH_TOKEN=file:~/.config/hats/relay.token
-CLAUDE_CONFIG_DIR=~/.claude-my-relay
-EOF
+```text
+hats                              show profiles and first-run hints
+hats init                         write an example config
+hats add <name> <command...> --home
+hats exec <profile> -- <cmd>      run another command with the profile env
+hats which <profile>              inspect a profile, with secrets masked
+hats setenv <profile> --file .env merge env vars from KEY=value lines
+hats rm <profile>                 delete a profile entry
 ```
 
-Or import an existing `.env`: `hats setenv my-relay --file ~/.config/hats/relay.env`.
-Values may be plain text or a `file:`/`cmd:`/`env:` reference.
+</details>
 
-Need a template to copy from? `hats init` writes `~/.config/hats/config.example.toml`
-with reference profile shapes; copy a block into your config and `hats edit`.
+`hats add` without arguments opens a short wizard: name, launch command, and whether
+this hat needs a separate login.
 
-### First-run guidance
+## Non-goals
 
-Running bare `hats` with **no profiles** opens an interactive guide: create from a
-template (e.g. `relay` — just base_url + token), seed an example config, or walk
-the wizard. Once you have profiles, bare `hats` prints a friendly summary instead.
-`hats add --template relay` does the same non-interactively.
-
-## How isolation works
-
-- `inherit_env = true` (default): child inherits the parent shell's env, then
-  overlays the profile's env.
-- `inherit_env = false` (per-profile): only a whitelist (`PATH`, `HOME`, …) is
-  inherited. Use this for a local-model hat so a stray global `export ANTHROPIC_*`
-  in your zshrc can't leak in — the guarantee is enforced by the tool, not by
-  your discipline.
-- `CLAUDE_CONFIG_DIR` / `CODEX_HOME` per hat → separate config dirs → CC Switch
-  pollution in `~/.claude` is irrelevant to a `hats`-launched process.
-
-## Non-goals (for v0.1)
-
-- No GUI desktop app launching (Claude/Codex Desktop) — planned for v0.2 via
-  `open -n --user-data-dir` (already community-verified).
-- No credential vault — references only.
-- No multi-machine sync.
+- No global provider switching.
+- No credential vault.
+- No OAuth management. The underlying CLI still owns login and refresh.
+- No automatic `.zshrc` migration.
+- No GUI desktop app launching in v0.1.
+- No interactive profile picker. Switching stays explicit: `hats run <name>`.
 
 ## License
 
