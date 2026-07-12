@@ -39,11 +39,11 @@ jobs:
           - { os: ubuntu-latest, target: linux-x64,    smoke: true }
           - { os: ubuntu-latest, target: linux-arm64,  smoke: false }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: npm
