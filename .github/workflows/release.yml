@@ -31,11 +31,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # native builds on matching runners so each can be smoke-tested
+          # native builds on matching runners so each can be smoke-tested;
+          # darwin-x64 and linux-arm64 are cross-compiled (not exec'd) to avoid
+          # the deprecated/slow macos-13 (Intel) runner — both build on arm64.
           - { os: macos-14,      target: darwin-arm64, smoke: true }
-          - { os: macos-13,      target: darwin-x64,   smoke: true }
+          - { os: macos-14,      target: darwin-x64,   smoke: false }
           - { os: ubuntu-latest, target: linux-x64,    smoke: true }
-          - { os: ubuntu-latest, target: linux-arm64,  smoke: false }   # cross-arch, not exec'd
+          - { os: ubuntu-latest, target: linux-arm64,  smoke: false }
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
