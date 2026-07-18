@@ -1,6 +1,10 @@
 import { Command } from "commander";
 import * as p from "@clack/prompts";
-import { loadConfig, saveConfig } from "../core/config.js";
+import { loadConfig, removeProfile } from "../core/config.js";
+
+export function isRemovalConfirmed(value: unknown): value is true {
+  return !p.isCancel(value) && value === true;
+}
 
 export const rmCommand = new Command("rm")
   .description("delete a profile (referenced .env / files are left untouched)")
@@ -13,8 +17,7 @@ export const rmCommand = new Command("rm")
       process.exit(1);
     }
     const confirmed = await p.confirm({ message: `Delete profile "${name}"? (referenced files are kept)`, initialValue: false });
-    if (p.isCancel(confirmed) || !confirmed) return p.cancel("cancelled");
-    delete cfg.profiles[name];
-    saveConfig(cfg);
+    if (!isRemovalConfirmed(confirmed)) return p.cancel("cancelled");
+    removeProfile(name);
     p.log.success(`deleted profile "${name}"`);
   });

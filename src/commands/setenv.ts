@@ -2,7 +2,7 @@ import { Command } from "commander";
 import * as p from "@clack/prompts";
 import { readFileSync } from "node:fs";
 import { parse as parseDotenv } from "dotenv";
-import { loadConfig, saveConfig, type Profile } from "../core/config.js";
+import { addProfile, loadConfig, updateProfile, type Profile } from "../core/config.js";
 import { resolveConfigHome } from "../core/profile.js";
 import { describeForDisplay } from "../core/resolve.js";
 
@@ -40,6 +40,7 @@ export const setenvCommand = new Command("setenv")
     }
 
     const cfg = loadConfig();
+    const existed = Boolean(cfg.profiles[name]);
     let profile: Profile = cfg.profiles[name];
     if (!profile) {
       profile = { name };
@@ -57,7 +58,8 @@ export const setenvCommand = new Command("setenv")
       profile.env = { ...(profile.env ?? {}), [varName]: path };
       merged.push(`  ${varName} = ${path}`);
     }
-    saveConfig(cfg);
+    if (existed) updateProfile(profile);
+    else addProfile(profile);
 
     p.log.success(`updated "${name}"${opts.launch ? ` (launch=${opts.launch})` : ""}:\n${merged.join("\n")}`);
   });
