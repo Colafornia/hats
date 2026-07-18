@@ -63,28 +63,66 @@ Use hats when you want to:
 - replace global switchers that rewrite shared `~/.claude` or `~/.codex` config
 - launch any CLI with one profile and zero residue in the current shell
 
-## Common Setups
+## Run multiple subscriptions side by side
 
-### Codex official subscription
+hats supports fully isolated accounts for **Codex** and **Claude Code**. Each hat gets
+its own login, config, history, and settings, so work and personal subscriptions can
+run at the same time without overwriting each other.
 
-Use your normal `~/.codex` login:
-
-```bash
-hats add codex codex
-hats run codex
-```
-
-### Multiple Codex accounts
-
-Use a second Codex or ChatGPT account without touching the default `~/.codex`:
+### Two Codex accounts
 
 ```bash
-hats add codex-personal codex --home
-hats run codex-personal login
-hats run codex-personal
+hats add codex-work codex --isolated
+hats add codex-personal codex --isolated
+
+hats codex-work login
+hats codex-personal login
+
+hats codex-work
+# In another terminal:
+hats codex-personal
 ```
 
-`--home` gives this hat its own CLI home under `~/.config/hats/homes/<name>`.
+### Two Claude Code accounts
+
+```bash
+hats add claude-work claude --isolated
+hats add claude-personal claude --isolated
+
+hats claude-work
+# In another terminal:
+hats claude-personal
+```
+
+Codex opens `login`; Claude Code opens its onboarding flow on first run. Complete each
+login once, then launch that account anytime with its hat name.
+
+### How isolation works
+
+`--isolated` creates a dedicated CLI home under
+`~/.config/hats/homes/<name>`. hats also removes inherited provider credentials from
+the child process, preventing a shell-level API key from silently overriding the
+selected OAuth account. Add a key explicitly to the hat only when that override is
+intentional.
+
+Use a recent Claude Code release: isolated Claude accounts rely on its per-directory
+keychain storage.
+
+### Other CLIs
+
+hats can launch any CLI with per-process env and config. Credential-home isolation is
+currently available for Codex and Claude Code. For tools with shared credential
+storage, hats fails clearly instead of claiming the accounts are separated:
+
+- Gemini uses a fixed keychain entry. Use explicit env configuration with
+  `GEMINI_CLI_HOME` and `GEMINI_FORCE_FILE_STORAGE=true` if you accept that manual
+  setup.
+- OpenCode stores credentials outside its config home. Use provider keys through the
+  hat's `env` or `env_file`; redirecting `XDG_DATA_HOME` would affect every XDG app in
+  the child process and is not recommended.
+
+hats does not manage OAuth or report login state. The underlying CLI remains
+responsible for login and token refresh.
 
 See [Advanced configuration](docs/advanced.md) for gateways, local models, shared env
 files, and hand-written config.
@@ -106,7 +144,7 @@ hats ls                           list profiles
 ```text
 hats                              show profiles and first-run hints
 hats init                         write an example config
-hats add <name> <command...> --home
+hats add <name> <command...> --isolated
 hats exec <profile> -- <cmd>      run another command with the profile env
 hats which <profile>              inspect a profile, with secrets masked
 hats setenv <profile> --file .env merge env vars from KEY=value lines
