@@ -2,6 +2,7 @@ import { parse, stringify } from "smol-toml";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { looksSecret, refKind } from "./resolve.js";
 
 export interface Profile {
   name: string;
@@ -35,6 +36,11 @@ export function loadConfig(): HatsConfig {
   const profiles: Record<string, Profile> = {};
   const pr = (raw.profiles ?? {}) as Record<string, object>;
   for (const [name, v] of Object.entries(pr)) {
+    for (const key of Object.keys(v)) {
+      if (!["desc", "env_file", "env", "launch"].includes(key)) {
+        console.error(`warning: profiles.${name}.${key} is unknown and will be ignored`);
+      }
+    }
     profiles[name] = { name, ...(v as Partial<Profile>) };
   }
   return {
@@ -50,6 +56,11 @@ export function saveConfig(cfg: HatsConfig): void {
     profiles: {} as Record<string, unknown>,
   };
   for (const [name, p] of Object.entries(cfg.profiles)) {
+    for (const [key, value] of Object.entries(p.env ?? {})) {
+      if (looksSecret(key) && refKind(value) === "plain") {
+        console.error(`warning: ${key} contains a plaintext secret; prefer cmd:op read ...`);
+      }
+    }
     const { name: _omit, ...rest } = p;
     void _omit;
     (out.profiles as Record<string, unknown>)[name] = rest;

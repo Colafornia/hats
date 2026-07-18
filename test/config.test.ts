@@ -1,6 +1,6 @@
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -55,6 +55,31 @@ describe("config", () => {
 
   test("configPath respects $HATS_HOME", () => {
     assert.equal(configPath(), join(tmpHome, "config.toml"));
+  });
+
+  test("load warns about unknown profile fields", () => {
+    writeFileSync(configPath(), 'version = 1\n[profiles.old]\nlaunch = "codex"\nkind = "legacy"\n');
+    const errors: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => errors.push(args.join(" "));
+    try {
+      loadConfig();
+    } finally {
+      console.error = original;
+    }
+    assert.match(errors.join("\n"), /profiles\.old\.kind.*unknown/i);
+  });
+
+  test("save warns when a plaintext secret is written", () => {
+    const errors: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => errors.push(args.join(" "));
+    try {
+      saveConfig({ version: 1, profiles: { x: { name: "x", env: { API_TOKEN: "plaintext" } } } });
+    } finally {
+      console.error = original;
+    }
+    assert.match(errors.join("\n"), /API_TOKEN.*plaintext.*cmd:/i);
   });
 });
 

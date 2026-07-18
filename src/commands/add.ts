@@ -2,11 +2,16 @@ import { Command } from "commander";
 import * as p from "@clack/prompts";
 import { quote } from "shell-quote";
 import { loadConfig, saveConfig, type Profile } from "../core/config.js";
-import { profileNames, resolveConfigHome, ProfileError } from "../core/profile.js";
+import { profileNames, resolveConfigHome, ProfileError, validateProfileName } from "../core/profile.js";
 import { openConfigEditor } from "./edit.js";
 
 /** Non-interactive: `hats add <name> <command...> [--home]`. */
 function addPositional(name: string, command: string[], opts: { home?: boolean }): void {
+  const nameError = validateProfileName(name);
+  if (nameError) {
+    p.log.error(`invalid hat name: ${nameError}`);
+    process.exit(1);
+  }
   if (!command.length) {
     p.log.error("launch command required. Usage: hats add <name> <command...> [--home]");
     process.exit(1);
@@ -40,7 +45,7 @@ async function addInteractive(): Promise<void> {
       const t = v.trim();
       if (!t) return "required";
       if (existing.has(t)) return "already exists";
-      if (!/^[A-Za-z0-9_-]+$/.test(t)) return "letters, digits, _ or - only";
+      return validateProfileName(t);
     },
   });
   if (p.isCancel(name)) return p.cancel("cancelled");
