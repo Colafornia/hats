@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 import { resolveConfigHome, launchFirstToken, ProfileError } from "../src/core/profile.js";
-import { TOOLS } from "../src/core/tools.js";
+import { CredentialStorage, TOOLS } from "../src/core/tools.js";
 
 let tmpHome: string;
 let prevHome: string | undefined;
@@ -84,10 +84,15 @@ describe("launchFirstToken", () => {
 });
 
 describe("TOOLS", () => {
-  test("enumerates credential forms used by isolation decisions", () => {
+  test("describes credential storage used by isolation decisions", () => {
     assert.deepEqual(
-      Object.fromEntries(Object.entries(TOOLS).map(([name, tool]) => [name, tool.form])),
-      { codex: "A", claude: "B", gemini: "C", opencode: "D" },
+      Object.fromEntries(Object.entries(TOOLS).map(([name, tool]) => [name, tool.credentialStorage])),
+      {
+        codex: CredentialStorage.ConfigHome,
+        claude: CredentialStorage.DirectoryKeychain,
+        gemini: CredentialStorage.FixedKeychain,
+        opencode: CredentialStorage.ExternalData,
+      },
     );
   });
 });

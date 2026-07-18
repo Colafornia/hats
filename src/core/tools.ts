@@ -1,24 +1,33 @@
-export type CredentialForm = "A" | "B" | "C" | "D";
+export enum CredentialStorage {
+  ConfigHome = "config-home",
+  DirectoryKeychain = "directory-keychain",
+  FixedKeychain = "fixed-keychain",
+  ExternalData = "external-data",
+}
 
 export interface ToolEntry {
-  form: CredentialForm;
+  credentialStorage: CredentialStorage;
   homeVar?: string;
   credEnv?: string[];
 }
 
 export const TOOLS: Record<string, ToolEntry> = {
-  codex: { form: "A", homeVar: "CODEX_HOME", credEnv: ["OPENAI_API_KEY"] },
+  codex: {
+    credentialStorage: CredentialStorage.ConfigHome,
+    homeVar: "CODEX_HOME",
+    credEnv: ["OPENAI_API_KEY"],
+  },
   claude: {
-    form: "B",
+    credentialStorage: CredentialStorage.DirectoryKeychain,
     homeVar: "CLAUDE_CONFIG_DIR",
     credEnv: ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"],
   },
   gemini: {
-    form: "C",
+    credentialStorage: CredentialStorage.FixedKeychain,
     homeVar: "GEMINI_CLI_HOME",
     credEnv: ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"],
   },
-  opencode: { form: "D" },
+  opencode: { credentialStorage: CredentialStorage.ExternalData },
 };
 
 export const TOOL_HOME_VARS = new Set(
