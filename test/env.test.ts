@@ -86,6 +86,37 @@ describe("isolation / provider-prefix strip", () => {
     assert.equal(env.ANTHROPIC_API_PATH, "https://relay/v1");
   });
 
+  test("inherited values containing $ are left unchanged", async () => {
+    await withEnv("HATS_LITERAL_DOLLAR", "abc$def", async () => {
+      const { env } = await assembleEnv({ name: "r" });
+      assert.equal(env.HATS_LITERAL_DOLLAR, "abc$def");
+    });
+  });
+
+  test("plain profile values support an escaped dollar", async () => {
+    const { env } = await assembleEnv({ name: "r", env: { TOKEN: String.raw`abc\$def` } });
+    assert.equal(env.TOKEN, "abc$def");
+  });
+
+  test("TOML scalar env values are coerced to strings", async () => {
+    const { env } = await assembleEnv({ name: "r", env: { FLAG: true, COUNT: 2 } as never });
+    assert.equal(env.FLAG, "true");
+    assert.equal(env.COUNT, "2");
+  });
+
+  test("missing env_file and env: references warn", async () => {
+    const errors: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => errors.push(args.join(" "));
+    try {
+      await assembleEnv({ name: "r", env_file: "/definitely/missing", env: { TOKEN: "env:HATS_MISSING" } });
+    } finally {
+      console.error = original;
+    }
+    assert.match(errors.join("\n"), /env_file.*not found/);
+    assert.match(errors.join("\n"), /HATS_MISSING.*not set/);
+  });
+
   test("reference values are used verbatim — a token containing $ is not re-expanded", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hats-env-"));
     try {
@@ -101,8 +132,15 @@ describe("isolation / provider-prefix strip", () => {
 
 describe("STRIP_PREFIXES", () => {
   test("covers the popular coding CLIs", () => {
-    for (const p of ["ANTHROPIC_", "CLAUDE_", "CODEX_", "OPENAI_", "GEMINI_", "GOOGLE_"]) {
+    for (const p of ["ANTHROPIC_", "CLAUDE_", "CODEX_", "OPENAI_", "GEMINI_"]) {
       assert.ok(STRIP_PREFIXES.includes(p), `${p} in default strip set`);
     }
+  });
+
+  test("does not strip unrelated GOOGLE_ variables", async () => {
+    await withEnv("GOOGLE_APPLICATION_CREDENTIALS", "/tmp/gcp.json", async () => {
+      const { env } = await assembleEnv({ name: "gcp" });
+      assert.equal(env.GOOGLE_APPLICATION_CREDENTIALS, "/tmp/gcp.json");
+    });
   });
 });
