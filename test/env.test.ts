@@ -77,6 +77,12 @@ describe("isolation / provider-prefix strip", () => {
     assert.notEqual(ea.configDir, eb.configDir);
   });
 
+  test("codex hats also resolve distinct config homes through the registry", async () => {
+    const a = await assembleEnv({ name: "a", env: { CODEX_HOME: "~/.codex-a" } });
+    const b = await assembleEnv({ name: "b", env: { CODEX_HOME: "~/.codex-b" } });
+    assert.notEqual(a.configDir, b.configDir);
+  });
+
   test("${VAR} expansion resolves against the assembled env", async () => {
     const profile: Profile = {
       name: "r",

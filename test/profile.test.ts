@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
-import { resolveConfigHome, launchFirstToken, CONFIG_HOME_BY_TOOL, ProfileError } from "../src/core/profile.js";
+import { resolveConfigHome, launchFirstToken, ProfileError } from "../src/core/profile.js";
+import { TOOLS } from "../src/core/tools.js";
 
 let tmpHome: string;
 let prevHome: string | undefined;
@@ -31,8 +32,18 @@ describe("resolveConfigHome (--home inference)", () => {
     assert.equal(resolveConfigHome("c", "claude").varName, "CLAUDE_CONFIG_DIR");
   });
 
-  test("gemini launch → GEMINI_CLI_HOME", () => {
-    assert.equal(resolveConfigHome("g", "gemini").varName, "GEMINI_CLI_HOME");
+  test("fixed-keychain tools refuse to pretend they are isolated", () => {
+    assert.throws(
+      () => resolveConfigHome("g", "gemini"),
+      (error: unknown) => error instanceof ProfileError && /fixed keychain.*GEMINI_FORCE_FILE_STORAGE/s.test(error.message),
+    );
+  });
+
+  test("tools whose credentials live outside config home point to env injection", () => {
+    assert.throws(
+      () => resolveConfigHome("o", "opencode"),
+      (error: unknown) => error instanceof ProfileError && /outside the config home.*env injection/s.test(error.message),
+    );
   });
 
   test("infers from the FIRST launch token only (ollama launch claude → not claude)", () => {
@@ -72,12 +83,11 @@ describe("launchFirstToken", () => {
   });
 });
 
-describe("CONFIG_HOME_BY_TOOL", () => {
-  test("covers the three supported tools", () => {
-    assert.deepEqual(CONFIG_HOME_BY_TOOL, {
-      codex: "CODEX_HOME",
-      claude: "CLAUDE_CONFIG_DIR",
-      gemini: "GEMINI_CLI_HOME",
-    });
+describe("TOOLS", () => {
+  test("enumerates credential forms used by isolation decisions", () => {
+    assert.deepEqual(
+      Object.fromEntries(Object.entries(TOOLS).map(([name, tool]) => [name, tool.form])),
+      { codex: "A", claude: "B", gemini: "C", opencode: "D" },
+    );
   });
 });

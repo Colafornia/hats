@@ -15,7 +15,7 @@ version = 1
 launch = "codex"
 
 # Official Codex, isolated login/config home (separate OAuth account).
-# Created with: hats add codex-personal codex --home
+# Created with: hats add codex-personal codex --isolated
 # hats infers CODEX_HOME from the launch first token; the path lives under
 # ~/.config/hats/homes/<name> (i.e. $HATS_HOME/homes/<name>).
 [profiles.codex-personal]

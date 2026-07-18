@@ -1,12 +1,18 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import * as p from "@clack/prompts";
 import { quote } from "shell-quote";
 import { addProfile, loadConfig, type Profile } from "../core/config.js";
-import { profileNames, resolveConfigHome, ProfileError, validateProfileName } from "../core/profile.js";
+import {
+  launchFirstToken,
+  profileNames,
+  resolveConfigHome,
+  ProfileError,
+  validateProfileName,
+} from "../core/profile.js";
 import { openConfigEditor } from "./edit.js";
 
-/** Non-interactive: `hats add <name> <command...> [--home]`. */
-function addPositional(name: string, command: string[], opts: { home?: boolean }): void {
+/** Non-interactive: `hats add <name> <command...> [--isolated]`. */
+function addPositional(name: string, command: string[], opts: { isolated?: boolean; home?: boolean }): void {
   const nameError = validateProfileName(name);
   if (nameError) {
     p.log.error(`invalid hat name: ${nameError}`);
@@ -17,7 +23,8 @@ function addPositional(name: string, command: string[], opts: { home?: boolean }
   // (e.g. `--model "gpt 5"`) so parseLaunch() round-trips it to the same argv later.
   const launch = quote(command);
   const profile: Profile = { name, launch };
-  if (opts.home) {
+  const isolated = opts.isolated || opts.home;
+  if (isolated) {
     const { varName, path } = resolveConfigHome(name, launch);
     profile.env = { [varName]: path };
   }
@@ -27,7 +34,11 @@ function addPositional(name: string, command: string[], opts: { home?: boolean }
     process.exit(1);
   }
   addProfile(profile);
-  p.log.success(`created hat "${name}"${opts.home ? ` · config: ${profile.env && Object.values(profile.env)[0]}` : ""}`);
+  p.log.success(`created hat "${name}"${isolated ? ` · config: ${profile.env && Object.values(profile.env)[0]}` : ""}`);
+  if (isolated && launchFirstToken(launch) === "claude") {
+    p.log.warn("Claude isolation requires a recent version with per-directory keychain credentials; upgrade if unsure");
+  }
+  p.log.info(`next: hats ${name}`);
 }
 
 /** Thin interactive wizard: 3 questions + optional "open editor to add env". */
@@ -54,7 +65,7 @@ async function addInteractive(): Promise<void> {
 
   let useHome = false;
   try {
-    // Probe inference first so we can warn early if --home won't work for this launch.
+    // Probe inference first so we can warn early if isolation won't work for this launch.
     resolveConfigHome(name as string, launch as string);
     const ans = await p.confirm({ message: "Use separate login for this hat?", initialValue: false });
     if (p.isCancel(ans)) return p.cancel("cancelled");
@@ -81,12 +92,13 @@ async function addInteractive(): Promise<void> {
 }
 
 export const addCommand = new Command("add")
-  .description("create a hat: `hats add <name> [command...] [--home]` (or bare `hats add` for a thin wizard)")
+  .description("create a hat: `hats add <name> [command...] [--isolated]` (or bare `hats add` for a thin wizard)")
   .argument("[name]", "hat name")
   .argument("[command...]", "launch command (variadic)")
-  .option("--home", "isolate this hat's config home (infer CODEX_HOME/CLAUDE_CONFIG_DIR/GEMINI_CLI_HOME)")
+  .option("--isolated", "give this hat its own supported CLI config home")
+  .addOption(new Option("--home", "alias for --isolated").hideHelp())
   .allowUnknownOption() // let launch flags (e.g. --model) pass through into the variadic command
-  .action(async (name: string | undefined, command: string[], opts: { home?: boolean }) => {
+  .action(async (name: string | undefined, command: string[], opts: { isolated?: boolean; home?: boolean }) => {
     if (name === undefined) await addInteractive();
     else addPositional(name, command, opts);
   });
