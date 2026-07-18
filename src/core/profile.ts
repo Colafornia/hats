@@ -4,6 +4,13 @@ import { hatsHome, type HatsConfig, type Profile } from "./config.js";
 
 export class ProfileError extends Error {}
 
+export const RESERVED_NAMES = new Set(["run", "exec", "which", "ls", "add", "setenv", "init", "rm", "edit"]);
+
+export function validateProfileName(name: string): string | undefined {
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) return "letters, digits, _ or - only";
+  if (RESERVED_NAMES.has(name)) return `"${name}" is a reserved command name`;
+}
+
 /** Which env var carries a tool's isolated config home, keyed by launch first-token. */
 export const CONFIG_HOME_BY_TOOL: Record<string, string> = {
   codex: "CODEX_HOME",

@@ -91,6 +91,14 @@ describe("add (positional)", () => {
     assert.match(r.out, /already exists/);
   });
 
+  test("invalid and built-in names are rejected", async () => {
+    for (const name of ["bad.name", "run"]) {
+      const r = await runAdd([name, "codex"]);
+      assert.notEqual(r.code, 0);
+      assert.match(r.out, /name|reserved/i);
+    }
+  });
+
   test("a quoted arg with a space round-trips through the stored launch (Q1)", async () => {
     // `hats add q codex --model "gpt 5"` — the shell already split this into argv,
     // so commander receives ["codex","--model","gpt 5"]. The stored launch must
