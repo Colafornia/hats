@@ -119,3 +119,51 @@ describe("integration: hat shorthand", () => {
     assert.match(r.stderr, /Did you mean.*run/);
   });
 });
+
+describe("integration: shell completion", () => {
+  test("top-level completion lists built-ins and configured hats", async () => {
+    const r = await runCli(["__complete", "0"], childEnv());
+
+    assert.equal(r.code, 0, `stderr: ${r.stderr}`);
+    const candidates = r.stdout.trim().split("\n");
+    assert.ok(candidates.includes("run"));
+    assert.ok(candidates.includes("relay"));
+    assert.ok(candidates.includes("local"));
+  });
+
+  test("hat-taking commands complete configured hats for their first argument", async () => {
+    for (const command of ["run", "exec", "which", "rm", "setenv"]) {
+      const r = await runCli(["__complete", "1", command], childEnv());
+      assert.equal(r.code, 0, `${command}: ${r.stderr}`);
+      assert.match(r.stdout, /^relay$/m, command);
+      assert.match(r.stdout, /^local$/m, command);
+    }
+  });
+
+  test("command options are offered only where hats still owns the arguments", async () => {
+    const add = await runCli(["__complete", "1", "add"], childEnv());
+    assert.match(add.stdout, /^--isolated$/m);
+
+    const setenv = await runCli(["__complete", "2", "setenv", "relay"], childEnv());
+    assert.match(setenv.stdout, /^--file$/m);
+    assert.match(setenv.stdout, /^--launch$/m);
+    assert.match(setenv.stdout, /^--isolated$/m);
+
+    const run = await runCli(["__complete", "2", "run", "relay"], childEnv());
+    assert.equal(run.stdout, "");
+  });
+
+  test("completion errors stay off stdout and exit successfully", async () => {
+    const invalidHome = mkdtempSync(join(tmpdir(), "hats-complete-invalid-"));
+    try {
+      writeFileSync(join(invalidHome, "config.toml"), "not valid toml = [");
+      const r = await runCli(["__complete", "0"], childEnv({ HATS_HOME: invalidHome }));
+
+      assert.equal(r.code, 0);
+      assert.equal(r.stdout, "");
+      assert.notEqual(r.stderr, "");
+    } finally {
+      rmSync(invalidHome, { recursive: true, force: true });
+    }
+  });
+});
