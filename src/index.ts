@@ -12,6 +12,7 @@ import { editCommand } from "./commands/edit.js";
 import { initCommand } from "./commands/init.js";
 import { setenvCommand } from "./commands/setenv.js";
 import { friendlyHint } from "./commands/hint.js";
+import { loadConfig } from "./core/config.js";
 
 const program = new Command();
 
@@ -33,11 +34,7 @@ const pkgVersion = readVersion();
 program
   .name("hats")
   .description("per-terminal / per-process config isolator for Claude Code, Codex, and any CLI")
-  .version(pkgVersion)
-  .action(() => {
-    // bare `hats`: non-interactive summary / first-run hint (no picker).
-    friendlyHint();
-  });
+  .version(pkgVersion);
 
 program.addCommand(runCommand);
 program.addCommand(execCommand);
@@ -49,7 +46,12 @@ program.addCommand(initCommand);
 program.addCommand(rmCommand);
 program.addCommand(editCommand);
 
-program.parseAsync(process.argv).catch((err: unknown) => {
+const argv = process.argv.slice();
+const first = argv[2];
+if (first && !first.startsWith("-") && loadConfig().profiles[first]) argv.splice(2, 0, "run");
+
+const parse = argv.length === 2 ? (friendlyHint(), Promise.resolve()) : program.parseAsync(argv);
+parse.catch((err: unknown) => {
   const msg = err instanceof Error ? err.message : String(err);
   // eslint-disable-next-line no-console
   console.error(`hats: ${msg}`);

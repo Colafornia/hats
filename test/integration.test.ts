@@ -91,3 +91,31 @@ describe("integration: hats exec through the real CLI", () => {
     assert.equal(r.stdout, "", "dirty ANTHROPIC_* must be stripped before reaching the child");
   });
 });
+
+describe("integration: hat shorthand", () => {
+  test("`hats <hat>` runs the hat and preserves trailing args", async () => {
+    const script = join(tmpHome, "argv.mjs");
+    writeFileSync(script, "console.log(process.argv.slice(2).join('|'))\n");
+    writeFileSync(
+      join(tmpHome, "config.toml"),
+      `${CONFIG_TOML}\n[profiles.work]\nlaunch = "node ${script}"\n`,
+    );
+
+    const r = await runCli(["work", "--model", "gpt 5"], childEnv());
+
+    assert.equal(r.code, 0, `stderr: ${r.stderr}`);
+    assert.equal(r.stdout.trim(), "--model|gpt 5");
+  });
+
+  test("an unknown word stays an unknown command", async () => {
+    const r = await runCli(["not-a-hat"], childEnv());
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /unknown command 'not-a-hat'/);
+  });
+
+  test("a mistyped built-in gets Commander's real suggestion", async () => {
+    const r = await runCli(["rn", "work"], childEnv());
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /Did you mean.*run/);
+  });
+});
