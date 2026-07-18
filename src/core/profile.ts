@@ -5,7 +5,18 @@ import { CredentialStorage, TOOLS } from "./tools.js";
 
 export class ProfileError extends Error {}
 
-export const RESERVED_NAMES = new Set(["run", "exec", "which", "ls", "add", "setenv", "init", "rm", "edit"]);
+export const RESERVED_NAMES = new Set([
+  "run",
+  "exec",
+  "which",
+  "ls",
+  "add",
+  "setenv",
+  "init",
+  "rm",
+  "edit",
+  "__complete",
+]);
 
 export function validateProfileName(name: string): string | undefined {
   if (!/^[A-Za-z0-9_-]+$/.test(name)) return "letters, digits, _ or - only";

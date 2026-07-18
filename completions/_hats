@@ -1,0 +1,12 @@
+#compdef hats
+
+_hats() {
+  local index=$((CURRENT - 2))
+  local -a candidates
+  local output=$(hats __complete "$index" "${words[@]:1}" 2>/dev/null)
+  [[ -n $output ]] || return 0
+  candidates=("${(@f)output}")
+  compadd -- "${candidates[@]}"
+}
+
+_hats "$@"

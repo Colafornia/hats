@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
-import { resolveConfigHome, launchFirstToken, ProfileError } from "../src/core/profile.js";
+import { resolveConfigHome, launchFirstToken, ProfileError, validateProfileName } from "../src/core/profile.js";
 import { CredentialStorage, TOOLS } from "../src/core/tools.js";
 
 let tmpHome: string;
@@ -81,6 +81,10 @@ describe("launchFirstToken", () => {
     assert.equal(launchFirstToken(undefined), undefined);
     assert.equal(launchFirstToken("   "), undefined);
   });
+});
+
+test("the hidden completion command is reserved from hat names", () => {
+  assert.match(validateProfileName("__complete") ?? "", /reserved/);
 });
 
 describe("TOOLS", () => {
