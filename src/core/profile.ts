@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { hatsHome, type HatsConfig, type Profile } from "./config.js";
+import { TOOLS } from "./tools.js";
 
 export class ProfileError extends Error {}
 
@@ -10,13 +11,6 @@ export function validateProfileName(name: string): string | undefined {
   if (!/^[A-Za-z0-9_-]+$/.test(name)) return "letters, digits, _ or - only";
   if (RESERVED_NAMES.has(name)) return `"${name}" is a reserved command name`;
 }
-
-/** Which env var carries a tool's isolated config home, keyed by launch first-token. */
-export const CONFIG_HOME_BY_TOOL: Record<string, string> = {
-  codex: "CODEX_HOME",
-  claude: "CLAUDE_CONFIG_DIR",
-  gemini: "GEMINI_CLI_HOME",
-};
 
 /** First whitespace-delimited token of a launch string (no shell parsing). */
 export function launchFirstToken(launch: string | undefined): string | undefined {
@@ -41,22 +35,30 @@ export interface ConfigHome {
 }
 
 /**
- * Resolve the isolated config home for a profile: var name inferred from the
- * launch command's first token (codex/claude/gemini), path under HATS_HOME/homes/<name>.
- * Throws ProfileError if the first token isn't a known tool — caller should let the user
- * set the env var manually instead of guessing.
+ * Resolve a supported isolated config home from the launch command's first token.
+ * Forms C/D fail with an honest manual recipe instead of pretending credentials move.
  */
 export function resolveConfigHome(name: string, launch: string | undefined): ConfigHome {
   const first = launchFirstToken(launch);
-  const varName = first ? CONFIG_HOME_BY_TOOL[first] : undefined;
-  if (!varName) {
+  const tool = first ? TOOLS[first] : undefined;
+  if (!tool) {
     throw new ProfileError(
-      `--home only works when launch starts with codex, claude, or gemini ` +
-        `(got "${first ?? "(none)"}"). Set it manually, e.g. ` +
-        `env = { CODEX_HOME = "~/.config/hats/homes/${name}" }`,
+      `--isolated only works for a known tool (got "${first ?? "(none)"}"). ` +
+        `Use env injection for other CLIs.`,
     );
   }
-  return { varName, path: tildeify(join(hatsHome(), "homes", name)) };
+  if (tool.form === "C") {
+    throw new ProfileError(
+      "credentials live in a fixed keychain entry; isolate manually with " +
+        'env = { GEMINI_CLI_HOME = "...", GEMINI_FORCE_FILE_STORAGE = "true" }',
+    );
+  }
+  if (tool.form === "D") {
+    throw new ProfileError(
+      "credentials live outside the config home (XDG data); use env injection instead — provider keys are env-driven",
+    );
+  }
+  return { varName: tool.homeVar as string, path: tildeify(join(hatsHome(), "homes", name)) };
 }
 
 export function getProfile(cfg: HatsConfig, name: string): Profile {

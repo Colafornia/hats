@@ -72,10 +72,22 @@ describe("add (positional)", () => {
     assert.equal(p.env?.CODEX_HOME, join(tmpHome, "homes", "codex-personal"));
   });
 
+  test("`--isolated` is the primary spelling and `--home` remains compatible", async () => {
+    const r = await runAdd(["claude-work", "claude", "--isolated"]);
+    assert.equal(r.code, 0, `out: ${r.out}`);
+    assert.equal(profiles()["claude-work"].env?.CLAUDE_CONFIG_DIR, join(tmpHome, "homes", "claude-work"));
+  });
+
+  test("`--isolated` rejects tools that cannot isolate credentials by config home", async () => {
+    const r = await runAdd(["gemini-work", "gemini", "--isolated"]);
+    assert.notEqual(r.code, 0);
+    assert.match(r.out, /fixed keychain.*GEMINI_FORCE_FILE_STORAGE/s);
+  });
+
   test("`add <name> --home` with an uninferrable launch fails (no guessing)", async () => {
     const r = await runAdd(["local", "ollama", "launch", "claude", "--home"]);
     assert.notEqual(r.code, 0, "should error when --home can't be inferred");
-    assert.match(r.out, /--home only works when launch starts with codex, claude, or gemini/);
+    assert.match(r.out, /--isolated only works for a known tool/);
   });
 
   test("`add <name>` defaults launch to the hat name", async () => {

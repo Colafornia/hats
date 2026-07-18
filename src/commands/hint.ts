@@ -18,7 +18,7 @@ export function friendlyHint(): void {
   if (names.length === 0) {
     lines.push(`No hats yet. Create one:`);
     lines.push(`  ${c("hats add")}                       thin interactive wizard`);
-    lines.push(`  ${c("hats add <name> <cmd> [--home]")}  non-interactive`);
+    lines.push(`  ${c("hats add <name> <cmd> [--isolated]")}  non-interactive`);
     lines.push(`  ${c("hats init")}                      write an example config to copy from`);
   } else {
     lines.push(`${c("Your hats:")}`);

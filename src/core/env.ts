@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { parse as parseDotenv } from "dotenv";
 import type { Profile } from "./config.js";
 import { expandTilde, resolveForRun, refKind } from "./resolve.js";
+import { TOOL_CREDENTIAL_ENV, TOOL_HOME_VARS } from "./tools.js";
 
 /**
  * Provider / config prefixes stripped from the *inherited* environment so a
@@ -21,10 +22,8 @@ export const STRIP_PREFIXES = [
   "OPENAI_",
   "GEMINI_",
 ];
-const STRIP_EXACT = new Set(["GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"]);
-
 function shouldStrip(name: string, prefixes: string[]): boolean {
-  return STRIP_EXACT.has(name) || prefixes.some((p) => name.startsWith(p));
+  return TOOL_CREDENTIAL_ENV.has(name) || prefixes.some((p) => name.startsWith(p));
 }
 
 /** Expand ${VAR} and $VAR references using the assembled env. */
@@ -100,6 +99,7 @@ export async function assembleEnv(profile: Profile): Promise<AssembledEnv> {
     env[k] = expandVars(expandTilde(env[k]), env);
   }
 
-  const configDir = env.CLAUDE_CONFIG_DIR || env.CODEX_HOME || env.GEMINI_CLI_HOME;
-  return { env, configDir, stripped };
+  const configDir = Object.keys(env).find((key) => TOOL_HOME_VARS.has(key));
+  const resolvedConfigDir = configDir ? env[configDir] : undefined;
+  return { env, configDir: resolvedConfigDir, stripped };
 }

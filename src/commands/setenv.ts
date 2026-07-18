@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import * as p from "@clack/prompts";
 import { readFileSync } from "node:fs";
 import { parse as parseDotenv } from "dotenv";
@@ -11,8 +11,10 @@ export const setenvCommand = new Command("setenv")
   .argument("<hat>", "hat name (created if missing)")
   .option("-f, --file <path>", "read KEY=value lines from this file instead of stdin")
   .option("--launch <cmd>", "also set the hat's launch command")
-  .option("--home", "also inject the inferred config-home var (CODEX_HOME/CLAUDE_CONFIG_DIR/GEMINI_CLI_HOME)")
-  .action((name: string, opts: { file?: string; launch?: string; home?: boolean }) => {
+  .option("--isolated", "also inject the supported CLI's isolated config home")
+  .addOption(new Option("--home", "alias for --isolated").hideHelp())
+  .action((name: string, opts: { file?: string; launch?: string; isolated?: boolean; home?: boolean }) => {
+    const isolated = opts.isolated || opts.home;
     let content: string;
     if (opts.file) {
       content = readFileSync(opts.file, "utf8");
@@ -34,7 +36,7 @@ export const setenvCommand = new Command("setenv")
     const parsed = parseDotenv(content) as Record<string, string>;
     // `--home` alone (no KEY=value lines) is allowed; otherwise need at least one key.
     const hasInput = Object.keys(parsed).length > 0;
-    if (!hasInput && !opts.home && !opts.launch) {
+    if (!hasInput && !isolated && !opts.launch) {
       p.log.warn("no KEY=value lines found");
       return;
     }
@@ -53,7 +55,7 @@ export const setenvCommand = new Command("setenv")
       profile.env = { ...(profile.env ?? {}), ...parsed };
       merged.push(...Object.keys(parsed).map((k) => `  ${k} = ${describeForDisplay(parsed[k], k).display}`));
     }
-    if (opts.home) {
+    if (isolated) {
       const { varName, path } = resolveConfigHome(name, profile.launch);
       profile.env = { ...(profile.env ?? {}), [varName]: path };
       merged.push(`  ${varName} = ${path}`);
