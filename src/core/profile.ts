@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { hatsHome, type HatsConfig, type Profile } from "./config.js";
-import { TOOLS } from "./tools.js";
+import { CredentialStorage, TOOLS } from "./tools.js";
 
 export class ProfileError extends Error {}
 
@@ -36,7 +36,7 @@ export interface ConfigHome {
 
 /**
  * Resolve a supported isolated config home from the launch command's first token.
- * Forms C/D fail with an honest manual recipe instead of pretending credentials move.
+ * Shared credential stores fail with a manual recipe instead of pretending credentials move.
  */
 export function resolveConfigHome(name: string, launch: string | undefined): ConfigHome {
   const first = launchFirstToken(launch);
@@ -47,13 +47,13 @@ export function resolveConfigHome(name: string, launch: string | undefined): Con
         `Use env injection for other CLIs.`,
     );
   }
-  if (tool.form === "C") {
+  if (tool.credentialStorage === CredentialStorage.FixedKeychain) {
     throw new ProfileError(
       "credentials live in a fixed keychain entry; isolate manually with " +
         'env = { GEMINI_CLI_HOME = "...", GEMINI_FORCE_FILE_STORAGE = "true" }',
     );
   }
-  if (tool.form === "D") {
+  if (tool.credentialStorage === CredentialStorage.ExternalData) {
     throw new ProfileError(
       "credentials live outside the config home (XDG data); use env injection instead — provider keys are env-driven",
     );
