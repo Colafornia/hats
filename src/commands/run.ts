@@ -27,7 +27,7 @@ async function launch(
   } else if (profile.launch) {
     argv = parseLaunch(profile.launch);
   } else {
-    throw new Error(`profile "${profile.name}" has no launch command`);
+    throw new Error(`hat "${profile.name}" has no launch command`);
   }
   argv = [...argv, ...extraArgs];
 
@@ -35,8 +35,8 @@ async function launch(
 }
 
 export const runCommand = new Command("run")
-  .description("isolate-launch a profile's command")
-  .argument("<profile>", "profile name")
+  .description("isolate-launch a hat's command")
+  .argument("<hat>", "hat name")
   .argument("[args...]", "extra args appended to the launch command")
   .allowUnknownOption()
   .action(async (name: string, args: string[]) => {
@@ -47,8 +47,8 @@ export const runCommand = new Command("run")
   });
 
 export const execCommand = new Command("exec")
-  .description("run an arbitrary command with a profile's env (ignores launch)")
-  .argument("<profile>", "profile name")
+  .description("run an arbitrary command with a hat's env (ignores launch)")
+  .argument("<hat>", "hat name")
   .argument("[args...]", "command and its args (after --)")
   .allowUnknownOption()
   .action(async (name: string, args: string[]) => {
@@ -56,7 +56,7 @@ export const execCommand = new Command("exec")
     const profile = getProfile(cfg, name);
     if (!args.length) {
       // eslint-disable-next-line no-console
-      console.error("exec requires a command. Usage: hats exec <profile> -- <cmd> [args...]");
+      console.error("exec requires a command. Usage: hats exec <hat> -- <cmd> [args...]");
       process.exit(2);
     }
     const code = await launch(profile, [], args);

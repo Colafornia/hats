@@ -3,13 +3,13 @@ import Table from "cli-table3";
 import { loadConfig } from "../core/config.js";
 
 export const lsCommand = new Command("ls")
-  .description("list all profiles")
+  .description("list all hats")
   .action(() => {
     const cfg = loadConfig();
     const entries = Object.values(cfg.profiles);
     if (entries.length === 0) {
       // eslint-disable-next-line no-console
-      console.log("No profiles yet. Run `hats add` to create one.");
+      console.log("No hats yet. Run `hats add` to create one.");
       return;
     }
     entries.sort((a, b) => a.name.localeCompare(b.name));

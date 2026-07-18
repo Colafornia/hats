@@ -61,7 +61,7 @@ export function resolveConfigHome(name: string, launch: string | undefined): Con
 
 export function getProfile(cfg: HatsConfig, name: string): Profile {
   const p = cfg.profiles[name];
-  if (!p) throw new ProfileError(`profile "${name}" not found`);
+  if (!p) throw new ProfileError(`hat "${name}" not found`);
   return p;
 }
 

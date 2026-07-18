@@ -12,10 +12,7 @@ function addPositional(name: string, command: string[], opts: { home?: boolean }
     p.log.error(`invalid hat name: ${nameError}`);
     process.exit(1);
   }
-  if (!command.length) {
-    p.log.error("launch command required. Usage: hats add <name> <command...> [--home]");
-    process.exit(1);
-  }
+  if (!command.length) command = [name];
   // Serialize argv back to a single launch string, re-quoting tokens that need it
   // (e.g. `--model "gpt 5"`) so parseLaunch() round-trips it to the same argv later.
   const launch = quote(command);
@@ -26,11 +23,11 @@ function addPositional(name: string, command: string[], opts: { home?: boolean }
   }
   const cfg = loadConfig();
   if (cfg.profiles[name]) {
-    p.log.error(`profile "${name}" already exists`);
+    p.log.error(`hat "${name}" already exists`);
     process.exit(1);
   }
   addProfile(profile);
-  p.log.success(`created profile "${name}"${opts.home ? ` · config: ${profile.env && Object.values(profile.env)[0]}` : ""}`);
+  p.log.success(`created hat "${name}"${opts.home ? ` · config: ${profile.env && Object.values(profile.env)[0]}` : ""}`);
 }
 
 /** Thin interactive wizard: 3 questions + optional "open editor to add env". */
@@ -76,7 +73,7 @@ async function addInteractive(): Promise<void> {
     profile.env = { [varName]: path };
   }
   addProfile(profile);
-  p.log.success(`created profile "${profile.name}"`);
+  p.log.success(`created hat "${profile.name}"`);
 
   const editNow = await p.confirm({ message: "Open config to add env vars now?", initialValue: false });
   if (p.isCancel(editNow)) return;
@@ -84,8 +81,8 @@ async function addInteractive(): Promise<void> {
 }
 
 export const addCommand = new Command("add")
-  .description("create a hat: `hats add <name> <command...> [--home]` (or bare `hats add` for a thin wizard)")
-  .argument("[name]", "profile name")
+  .description("create a hat: `hats add <name> [command...] [--home]` (or bare `hats add` for a thin wizard)")
+  .argument("[name]", "hat name")
   .argument("[command...]", "launch command (variadic)")
   .option("--home", "isolate this hat's config home (infer CODEX_HOME/CLAUDE_CONFIG_DIR/GEMINI_CLI_HOME)")
   .allowUnknownOption() // let launch flags (e.g. --model) pass through into the variadic command
