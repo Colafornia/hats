@@ -5,14 +5,14 @@ import { describeForDisplay } from "../core/resolve.js";
 import { STRIP_PREFIXES } from "../core/env.js";
 
 export const whichCommand = new Command("which")
-  .description("show what a profile would inject (secrets masked, cmd: not executed)")
-  .argument("<profile>", "profile name")
+  .description("show what a hat would inject (secrets masked, cmd: not executed)")
+  .argument("<hat>", "hat name")
   .action((name: string) => {
     const cfg = loadConfig();
     const profile = getProfile(cfg, name);
 
     const lines: string[] = [];
-    lines.push(`profile: ${name}`);
+    lines.push(`hat:     ${name}`);
     if (profile.desc) lines.push(`desc:    ${profile.desc}`);
     if (profile.launch) lines.push(`launch:  ${profile.launch}`);
     lines.push(`strips:  ${STRIP_PREFIXES.join(", ")} (from inherited env)`);
@@ -33,7 +33,7 @@ export const whichCommand = new Command("which")
     } else if (profile.env_file) {
       lines.push("env: (no inline keys — values come from env_file above)");
     } else {
-      lines.push("env: (none — zero-injection profile)");
+      lines.push("env: (none — zero-injection hat)");
     }
 
     // eslint-disable-next-line no-console

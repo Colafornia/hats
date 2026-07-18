@@ -16,20 +16,20 @@ export function friendlyHint(): void {
   lines.push("");
 
   if (names.length === 0) {
-    lines.push(`No profiles yet. Create one:`);
+    lines.push(`No hats yet. Create one:`);
     lines.push(`  ${c("hats add")}                       thin interactive wizard`);
     lines.push(`  ${c("hats add <name> <cmd> [--home]")}  non-interactive`);
     lines.push(`  ${c("hats init")}                      write an example config to copy from`);
   } else {
-    lines.push(`${c("Your profiles:")}`);
+    lines.push(`${c("Your hats:")}`);
     for (const n of names) {
       const p = cfg.profiles[n];
       const d = p.desc ? ` — ${p.desc}` : "";
       lines.push(`  ${n}${d}`);
     }
     lines.push("");
-    lines.push(`${c("Run one:")}   hats run <profile>`);
-    lines.push(`${c("Inspect:")}   hats which <profile>   ·   ${c("list:")} hats ls`);
+    lines.push(`${c("Run one:")}   hats <name>`);
+    lines.push(`${c("Inspect:")}   hats which <name>   ·   ${c("list:")} hats ls`);
   }
 
   lines.push("");

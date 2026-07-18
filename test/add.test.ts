@@ -78,10 +78,10 @@ describe("add (positional)", () => {
     assert.match(r.out, /--home only works when launch starts with codex, claude, or gemini/);
   });
 
-  test("`add <name>` with no launch command fails", async () => {
+  test("`add <name>` defaults launch to the hat name", async () => {
     const r = await runAdd(["lonely"]);
-    assert.notEqual(r.code, 0);
-    assert.match(r.out, /launch command required/);
+    assert.equal(r.code, 0, r.out);
+    assert.equal(profiles().lonely.launch, "lonely");
   });
 
   test("duplicate name is rejected", async () => {

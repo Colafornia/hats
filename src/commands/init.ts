@@ -4,8 +4,8 @@ import { writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { hatsHome, configPath, saveConfig, defaultConfig } from "../core/config.js";
 
-export const EXAMPLE = `# hats example config — copy a [profiles.<name>] block into config.toml and edit.
-# These are generic shapes; rename profiles to whatever you like.
+export const EXAMPLE = `# hats example config — copy a hat block into config.toml and edit.
+# These are generic shapes; rename hats to whatever you like.
 
 version = 1
 
@@ -55,5 +55,5 @@ export const initCommand = new Command("init")
     writeFileSync(examplePath, EXAMPLE);
     p.log.success(`example written: ${examplePath}`);
     p.log.info(`your config:    ${configPath()}`);
-    p.log.info("copy a profile block from the example into your config, then `hats edit`.");
+    p.log.info("copy a hat block from the example into your config, then `hats edit`.");
   });

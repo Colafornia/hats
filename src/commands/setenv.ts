@@ -7,10 +7,10 @@ import { resolveConfigHome } from "../core/profile.js";
 import { describeForDisplay } from "../core/resolve.js";
 
 export const setenvCommand = new Command("setenv")
-  .description("batch-merge env keys for a profile from KEY=value lines (stdin or --file)")
-  .argument("<profile>", "profile name (created if missing)")
+  .description("batch-merge env keys for a hat from KEY=value lines (stdin or --file)")
+  .argument("<hat>", "hat name (created if missing)")
   .option("-f, --file <path>", "read KEY=value lines from this file instead of stdin")
-  .option("--launch <cmd>", "also set the profile's launch command")
+  .option("--launch <cmd>", "also set the hat's launch command")
   .option("--home", "also inject the inferred config-home var (CODEX_HOME/CLAUDE_CONFIG_DIR/GEMINI_CLI_HOME)")
   .action((name: string, opts: { file?: string; launch?: string; home?: boolean }) => {
     let content: string;
@@ -18,7 +18,7 @@ export const setenvCommand = new Command("setenv")
       content = readFileSync(opts.file, "utf8");
     } else if (process.stdin.isTTY) {
       p.log.error(
-        "No env input. Use:\n" + "  hats setenv <profile> --file .env\n" + "or:\n" + "  hats edit",
+        "No env input. Use:\n" + "  hats setenv <hat> --file .env\n" + "or:\n" + "  hats edit",
       );
       process.exit(1);
     } else {
