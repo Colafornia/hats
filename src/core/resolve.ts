@@ -13,10 +13,14 @@ export function looksSecret(key: string): boolean {
   return SECRET_KEY_RE.test(key);
 }
 
-export function refKind(v: string): RefKind {
-  if (v.startsWith("env:")) return "env";
-  if (v.startsWith("file:")) return "file";
-  if (v.startsWith("cmd:")) return "cmd";
+export function refKind(v: unknown): RefKind {
+  // TOML parses unquoted scalars as native types (e.g. `requires_openai_auth = true`
+  // -> boolean). Coerce so callers that pass a raw profile env value don't crash on
+  // `v.startsWith`; a boolean/number is never a `env:`/`file:`/`cmd:` reference.
+  const s = typeof v === "string" ? v : String(v);
+  if (s.startsWith("env:")) return "env";
+  if (s.startsWith("file:")) return "file";
+  if (s.startsWith("cmd:")) return "cmd";
   return "plain";
 }
 
@@ -39,10 +43,11 @@ function refArg(v: string, kind: RefKind): string {
  * - file:path: file contents, trimmed
  * - cmd:<shell>: stdout of the command, trimmed (run with current env, e.g. for `op read`)
  */
-export function resolveForRun(v: string): string {
-  const k = refKind(v);
-  if (k === "plain") return v;
-  const arg = refArg(v, k);
+export function resolveForRun(v: unknown): string {
+  const s = typeof v === "string" ? v : String(v);
+  const k = refKind(s);
+  if (k === "plain") return s;
+  const arg = refArg(s, k);
   if (k === "env") return process.env[arg] ?? "";
   if (k === "file") return readFileSync(arg, "utf8").trim();
   return execSync(arg, { encoding: "utf8" }).trim();
@@ -63,14 +68,15 @@ export interface DisplayValue {
  * A plaintext value is masked too when its key name looks like a secret
  * (pass `key` for that check); otherwise shown raw (e.g. ANTHROPIC_BASE_URL).
  */
-export function describeForDisplay(v: string, key?: string): DisplayValue {
-  const k = refKind(v);
+export function describeForDisplay(v: unknown, key?: string): DisplayValue {
+  const s = typeof v === "string" ? v : String(v);
+  const k = refKind(s);
   if (k === "plain") {
     if (key && looksSecret(key)) {
       return { display: "****", source: "plain (secret)", isRef: false };
     }
-    return { display: v, source: "plain", isRef: false };
+    return { display: s, source: "plain", isRef: false };
   }
-  const arg = v.slice(k.length + 1);
+  const arg = s.slice(k.length + 1);
   return { display: "****", source: `${k}:${arg}`, isRef: true };
 }

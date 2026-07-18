@@ -20,18 +20,19 @@ export const STRIP_PREFIXES = [
   "CODEX_",
   "OPENAI_",
   "GEMINI_",
-  "GOOGLE_",
 ];
+const STRIP_EXACT = new Set(["GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"]);
 
 function shouldStrip(name: string, prefixes: string[]): boolean {
-  return prefixes.some((p) => name.startsWith(p));
+  return STRIP_EXACT.has(name) || prefixes.some((p) => name.startsWith(p));
 }
 
 /** Expand ${VAR} and $VAR references using the assembled env. */
 function expandVars(s: string, env: Record<string, string>): string {
   return s
-    .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, n) => env[n] ?? "")
-    .replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (_, n) => env[n] ?? "");
+    .replace(/(?<!\\)\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, n) => env[n] ?? "")
+    .replace(/(?<!\\)\$([A-Za-z_][A-Za-z0-9_]*)/g, (_, n) => env[n] ?? "")
+    .replace(/\\\$/g, "$");
 }
 
 export interface AssembledEnv {
@@ -62,27 +63,41 @@ export async function assembleEnv(profile: Profile): Promise<AssembledEnv> {
   }
 
   const noExpand = new Set<string>();
+  const expand = new Set<string>();
 
   if (profile.env_file) {
     const files = Array.isArray(profile.env_file) ? profile.env_file : [profile.env_file];
     for (const f of files) {
       const p = expandTilde(f);
-      if (!existsSync(p)) continue;
-      Object.assign(env, parseDotenv(readFileSync(p, "utf8")));
+      if (!existsSync(p)) {
+        console.error(`warning: env_file not found: ${p}`);
+        continue;
+      }
+      const parsed = parseDotenv(readFileSync(p, "utf8"));
+      Object.assign(env, parsed);
+      Object.keys(parsed).forEach((k) => expand.add(k));
     }
   }
 
   if (profile.env) {
     for (const [k, v] of Object.entries(profile.env)) {
-      const knd = refKind(v);
-      env[k] = resolveForRun(v);
+      // TOML parses unquoted scalars as native types (`true` -> boolean, `42` ->
+      // number). Env vars must be strings, so coerce anything non-string; refKind /
+      // resolveForRun / expandTilde all assume strings and would crash otherwise.
+      const sv = typeof v === "string" ? v : String(v);
+      const knd = refKind(sv);
+      if (knd === "env" && process.env[sv.slice(4)] === undefined) {
+        console.error(`warning: env reference ${sv.slice(4)} is not set`);
+      }
+      env[k] = resolveForRun(sv);
       if (knd !== "plain") noExpand.add(k);
+      else expand.add(k);
     }
   }
 
-  for (const [k, v] of Object.entries(env)) {
+  for (const k of expand) {
     if (noExpand.has(k)) continue;
-    env[k] = expandVars(expandTilde(v), env);
+    env[k] = expandVars(expandTilde(env[k]), env);
   }
 
   const configDir = env.CLAUDE_CONFIG_DIR || env.CODEX_HOME || env.GEMINI_CLI_HOME;
