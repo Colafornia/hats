@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import * as p from "@clack/prompts";
 import { quote } from "shell-quote";
-import { loadConfig, saveConfig, type Profile } from "../core/config.js";
+import { addProfile, loadConfig, type Profile } from "../core/config.js";
 import { profileNames, resolveConfigHome, ProfileError, validateProfileName } from "../core/profile.js";
 import { openConfigEditor } from "./edit.js";
 
@@ -29,8 +29,7 @@ function addPositional(name: string, command: string[], opts: { home?: boolean }
     p.log.error(`profile "${name}" already exists`);
     process.exit(1);
   }
-  cfg.profiles[name] = profile;
-  saveConfig(cfg);
+  addProfile(profile);
   p.log.success(`created profile "${name}"${opts.home ? ` · config: ${profile.env && Object.values(profile.env)[0]}` : ""}`);
 }
 
@@ -76,8 +75,7 @@ async function addInteractive(): Promise<void> {
     const { varName, path } = resolveConfigHome(name as string, launch as string);
     profile.env = { [varName]: path };
   }
-  cfg.profiles[profile.name] = profile;
-  saveConfig(cfg);
+  addProfile(profile);
   p.log.success(`created profile "${profile.name}"`);
 
   const editNow = await p.confirm({ message: "Open config to add env vars now?", initialValue: false });

@@ -1,6 +1,6 @@
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -80,6 +80,13 @@ describe("config", () => {
       console.error = original;
     }
     assert.match(errors.join("\n"), /API_TOKEN.*plaintext.*cmd:/i);
+  });
+
+  test("replacing an existing config keeps one recoverable .bak", () => {
+    saveConfig({ version: 1, profiles: { before: { name: "before", launch: "codex" } } });
+    const before = readFileSync(configPath(), "utf8");
+    saveConfig({ version: 1, profiles: { after: { name: "after", launch: "claude" } } });
+    assert.equal(readFileSync(`${configPath()}.bak`, "utf8"), before);
   });
 });
 

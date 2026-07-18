@@ -1,7 +1,7 @@
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,5 +105,27 @@ describe("setenv (batch merge env)", () => {
   test("a file: reference value is stored verbatim, not resolved (S4)", async () => {
     await runSetenv(["r", "--launch", "codex"], "OPENAI_API_KEY=file:~/k\n");
     assert.equal(profiles().r.env?.OPENAI_API_KEY, "file:~/k", "file: ref stored verbatim, not read");
+  });
+
+  test("rewrites only the target section and creates a backup", async () => {
+    const path = join(tmpHome, "config.toml");
+    const original = '# top\nversion = 1\n\n[profiles.target]\nlaunch = "codex"\n\n# other comment\n[profiles.other]\nlaunch = "claude"\n';
+    writeFileSync(path, original);
+    const r = await runSetenv(["target"], "A=1\n");
+    assert.equal(r.code, 0, r.stderr);
+    const updated = readFileSync(path, "utf8");
+    assert.match(updated, /# top/);
+    assert.match(updated, /# other comment/);
+    assert.equal(readFileSync(`${path}.bak`, "utf8"), original);
+  });
+
+  test("refuses an ambiguous nested target without changing the config", async () => {
+    const path = join(tmpHome, "config.toml");
+    const original = 'version = 1\n[profiles.complex]\nlaunch = "codex"\n[profiles.complex.env]\nA = "1"\n';
+    writeFileSync(path, original);
+    const r = await runSetenv(["complex"], "B=2\n");
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /hats edit/);
+    assert.equal(readFileSync(path, "utf8"), original);
   });
 });

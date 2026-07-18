@@ -1,7 +1,7 @@
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -107,5 +107,14 @@ describe("add (positional)", () => {
     assert.equal(r.code, 0, `out: ${r.out}`);
     const launch = profiles().q.launch ?? "";
     assert.deepEqual(parseLaunch(launch), ["codex", "--model", "gpt 5"], "launch round-trips to the same argv");
+  });
+
+  test("add appends without removing existing comments", async () => {
+    const path = join(tmpHome, "config.toml");
+    writeFileSync(path, '# keep this comment\nversion = 1\n\n[profiles.old]\nlaunch = "claude"\n');
+    const r = await runAdd(["fresh", "codex"]);
+    assert.equal(r.code, 0, r.out);
+    assert.match(readFileSync(path, "utf8"), /# keep this comment/);
+    assert.equal(profiles().fresh.launch, "codex");
   });
 });
