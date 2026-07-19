@@ -1,24 +1,19 @@
 #!/usr/bin/env node
 import { loadConfig } from "./core/config.js";
+import { BUILTIN_COMMANDS, BUILTIN_NAMES, COMPLETE_COMMAND } from "./core/builtins.js";
 
-const BUILTINS = ["run", "exec", "which", "ls", "add", "setenv", "init", "rm", "edit"];
-const FLAGS: Record<string, string[]> = {
-  add: ["--isolated"],
-  setenv: ["--file", "--launch", "--isolated"],
-};
-
-if (process.argv[2] === "__complete") {
+if (process.argv[2] === COMPLETE_COMMAND) {
   try {
     const position = Number(process.argv[3]);
     const profiles = Object.keys(loadConfig().profiles);
+    const command = BUILTIN_COMMANDS[process.argv[4]];
     let candidates =
       position === 0
-        ? [...BUILTINS, ...profiles]
-        : position === 1 && ["run", "exec", "which", "rm", "setenv"].includes(process.argv[4])
+        ? [...BUILTIN_NAMES, ...profiles]
+        : position === 1 && command?.completesHat
           ? profiles
           : [];
-    const command = process.argv[4];
-    if (position > 0 && FLAGS[command]) candidates = [...candidates, ...FLAGS[command]];
+    if (position > 0 && command?.flags) candidates = [...candidates, ...command.flags];
     if (candidates.length) process.stdout.write(candidates.join("\n") + "\n");
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
