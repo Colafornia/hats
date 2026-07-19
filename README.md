@@ -4,13 +4,28 @@
 
 <h1 align="center">hats</h1>
 
-<p align="center">Run any AI CLI with the right config — one hat per terminal, zero shell pollution.</p>
+<p align="center">Run multiple AI CLI setups side by side — one hat per terminal, zero shell pollution.</p>
 
 <p align="center">
-  <a href="#install"><img src="https://img.shields.io/badge/install-Homebrew-FBB040?logo=homebrew&logoColor=111827" alt="Install with Homebrew"></a>
   <a href="https://github.com/Colafornia/hats/actions/workflows/ci.yml"><img src="https://github.com/Colafornia/hats/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
 </p>
+
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Colafornia/hats/main/install.sh | sh
+```
+
+No Node.js, Bun, `sudo`, or shell startup-file changes required.
+
+Prefer Homebrew?
+
+```bash
+brew install colafornia/tap/hats
+```
+
+## Quick start
 
 ```bash
 hats add work claude
@@ -19,66 +34,6 @@ hats work
 
 That is the whole default workflow. A hat starts its CLI in a clean child process with
 the config you chose. Your current shell and other terminals stay unchanged.
-
-## Install
-
-### Homebrew
-
-```bash
-brew install colafornia/tap/hats
-```
-
-### curl
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Colafornia/hats/main/install.sh | sh
-```
-
-The installer verifies the release checksum and puts the standalone binary in
-`~/.local/bin` without `sudo` or shell startup-file changes. Pin a release with
-`HATS_VERSION=v0.1.0`; override the destination with `HATS_INSTALL_DIR`.
-
-To inspect the installer first:
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/Colafornia/hats/main/install.sh
-less install.sh
-sh install.sh
-```
-
-### Manual install
-
-Download `hats-<os>-<arch>.tar.gz` and `SHA256SUMS` from the matching
-[GitHub Release](https://github.com/Colafornia/hats/releases), then replace the
-placeholder below with your asset name:
-
-```bash
-grep ' hats-<os>-<arch>.tar.gz$' SHA256SUMS | shasum -a 256 -c -
-tar xzf hats-<os>-<arch>.tar.gz
-mkdir -p ~/.local/bin
-install -m 755 hats ~/.local/bin/hats
-```
-
-Release tarballs include Bash, Zsh, and Fish completion files. Homebrew installs them
-automatically. With curl, download and extract the matching release tarball to get its
-`completions` directory. Keep that directory and add the matching setup to your shell
-config:
-
-```bash
-# Bash
-source /path/to/completions/hats.bash
-
-# Zsh
-fpath=(/path/to/completions $fpath)
-autoload -Uz compinit && compinit
-
-# Fish
-source /path/to/completions/hats.fish
-```
-
-No Node.js or Bun is required at runtime.
-
-## Quick start
 
 Create a hat by naming it and the CLI it should launch:
 
