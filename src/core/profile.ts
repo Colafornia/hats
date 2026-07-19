@@ -2,21 +2,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { hatsHome, type HatsConfig, type Profile } from "./config.js";
 import { CredentialStorage, TOOLS } from "./tools.js";
+import { RESERVED_NAMES } from "./builtins.js";
 
 export class ProfileError extends Error {}
-
-export const RESERVED_NAMES = new Set([
-  "run",
-  "exec",
-  "which",
-  "ls",
-  "add",
-  "setenv",
-  "init",
-  "rm",
-  "edit",
-  "__complete",
-]);
 
 export function validateProfileName(name: string): string | undefined {
   if (!/^[A-Za-z0-9_-]+$/.test(name)) return "letters, digits, _ or - only";
