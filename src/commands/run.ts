@@ -40,7 +40,7 @@ export const runCommand = new Command("run")
   .argument("[args...]", "extra args appended to the launch command")
   .allowUnknownOption()
   .action(async (name: string, args: string[]) => {
-    const cfg = loadConfig();
+    const cfg = loadConfig(name);
     const profile = getProfile(cfg, name);
     const code = await launch(profile, args);
     process.exit(code);
@@ -52,7 +52,7 @@ export const execCommand = new Command("exec")
   .argument("[args...]", "command and its args (after --)")
   .allowUnknownOption()
   .action(async (name: string, args: string[]) => {
-    const cfg = loadConfig();
+    const cfg = loadConfig(name);
     const profile = getProfile(cfg, name);
     if (!args.length) {
       // eslint-disable-next-line no-console

@@ -39,7 +39,7 @@ export function defaultConfig(): HatsConfig {
   return { version: 1, profiles: {} };
 }
 
-export function loadConfig(): HatsConfig {
+export function loadConfig(warnUnknown: boolean | string = true): HatsConfig {
   const p = configPath();
   if (!existsSync(p)) return defaultConfig();
   const raw = parse(readFileSync(p, "utf8")) as Record<string, unknown>;
@@ -47,7 +47,7 @@ export function loadConfig(): HatsConfig {
   const pr = (raw.profiles ?? {}) as Record<string, object>;
   for (const [name, v] of Object.entries(pr)) {
     for (const key of Object.keys(v)) {
-      if (!["desc", "env_file", "env", "launch"].includes(key)) {
+      if ((warnUnknown === true || warnUnknown === name) && !["desc", "env_file", "env", "launch"].includes(key)) {
         console.error(`warning: profiles.${name}.${key} is unknown and will be ignored`);
       }
     }
