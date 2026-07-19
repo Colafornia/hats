@@ -26,13 +26,14 @@ const pkgVersion = readVersion();
 program
   .name("hats")
   .description("per-terminal / per-process config isolator for Claude Code, Codex, and any CLI")
-  .version(pkgVersion);
+  .version(pkgVersion)
+  .version(pkgVersion, "-v");
 
 for (const command of COMMANDS) program.addCommand(command);
 
 const argv = process.argv.slice();
 const first = argv[2];
-if (first && !first.startsWith("-") && loadConfig().profiles[first]) argv.splice(2, 0, "run");
+if (first && !first.startsWith("-") && loadConfig(false).profiles[first]) argv.splice(2, 0, "run");
 
 const parse = argv.length === 2 ? (friendlyHint(), Promise.resolve()) : program.parseAsync(argv);
 parse.catch((err: unknown) => {

@@ -71,6 +71,12 @@ function runCli(args: string[], env: Record<string, string>): Promise<RunResult>
 }
 
 describe("integration: hats exec through the real CLI", () => {
+  test("-v prints the version", async () => {
+    const r = await runCli(["-v"], childEnv());
+    assert.equal(r.code, 0, `stderr: ${r.stderr}`);
+    assert.equal(r.stdout.trim(), "0.1.0");
+  });
+
   test("exit code is passed through (E1)", async () => {
     const r = await runCli(["exec", "relay", "--", "node", "-e", "process.exit(3)"], childEnv());
     assert.equal(r.code, 3, `stderr: ${r.stderr}`);
@@ -105,6 +111,20 @@ describe("integration: hat shorthand", () => {
 
     assert.equal(r.code, 0, `stderr: ${r.stderr}`);
     assert.equal(r.stdout.trim(), "--model|gpt 5");
+  });
+
+  test("shorthand does not warn about unrelated hats", async () => {
+    const script = join(tmpHome, "noop.mjs");
+    writeFileSync(script, "");
+    writeFileSync(
+      join(tmpHome, "config.toml"),
+      `${CONFIG_TOML}\n[profiles.work]\nlaunch = "node ${script}"\n\n[profiles.legacy]\nlaunch = "claude"\nkind = "legacy"\n`,
+    );
+
+    const r = await runCli(["work"], childEnv());
+
+    assert.equal(r.code, 0, `stderr: ${r.stderr}`);
+    assert.doesNotMatch(r.stderr, /profiles\.legacy\.kind/);
   });
 
   test("an unknown word stays an unknown command", async () => {
