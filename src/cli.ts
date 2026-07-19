@@ -2,14 +2,7 @@ import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { runCommand, execCommand } from "./commands/run.js";
-import { whichCommand } from "./commands/which.js";
-import { lsCommand } from "./commands/ls.js";
-import { addCommand } from "./commands/add.js";
-import { rmCommand } from "./commands/rm.js";
-import { editCommand } from "./commands/edit.js";
-import { initCommand } from "./commands/init.js";
-import { setenvCommand } from "./commands/setenv.js";
+import { COMMANDS } from "./commands/index.js";
 import { friendlyHint } from "./commands/hint.js";
 import { loadConfig } from "./core/config.js";
 
@@ -35,15 +28,7 @@ program
   .description("per-terminal / per-process config isolator for Claude Code, Codex, and any CLI")
   .version(pkgVersion);
 
-program.addCommand(runCommand);
-program.addCommand(execCommand);
-program.addCommand(whichCommand);
-program.addCommand(lsCommand);
-program.addCommand(addCommand);
-program.addCommand(setenvCommand);
-program.addCommand(initCommand);
-program.addCommand(rmCommand);
-program.addCommand(editCommand);
+for (const command of COMMANDS) program.addCommand(command);
 
 const argv = process.argv.slice();
 const first = argv[2];
