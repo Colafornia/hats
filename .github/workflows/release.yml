@@ -78,11 +78,8 @@ jobs:
 
       - name: Package tarball
         run: |
-          cp -R completions build/
-          (cd build && tar czf ../hats-${{ matrix.target }}.tar.gz hats completions)
-          for member in hats completions/hats.bash completions/_hats completions/hats.fish; do
-            tar tzf hats-${{ matrix.target }}.tar.gz "$member" >/dev/null
-          done
+          (cd build && tar czf ../hats-${{ matrix.target }}.tar.gz hats)
+          tar tzf hats-${{ matrix.target }}.tar.gz hats >/dev/null
           # `shasum -a 256` (Perl script) is present on both macOS and Ubuntu;
           # `sha256sum` is coreutils-only and missing on macOS runners.
           shasum -a 256 hats-${{ matrix.target }}.tar.gz | tee hats-${{ matrix.target }}.tar.gz.sha256
@@ -174,9 +171,7 @@ jobs:
 
             def install
               bin.install "hats"
-              bash_completion.install "completions/hats.bash" => "hats"
-              zsh_completion.install "completions/_hats"
-              fish_completion.install "completions/hats.fish"
+              generate_completions_from_executable(bin/"hats", "completion")
             end
 
             test do

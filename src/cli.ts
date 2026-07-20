@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { COMMANDS } from "./commands/index.js";
 import { friendlyHint } from "./commands/hint.js";
 import { loadConfig } from "./core/config.js";
+import { BUILTIN_NAMES } from "./core/builtins.js";
 
 const program = new Command();
 
@@ -33,7 +34,9 @@ for (const command of COMMANDS) program.addCommand(command);
 
 const argv = process.argv.slice();
 const first = argv[2];
-if (first && !first.startsWith("-") && loadConfig(false).profiles[first]) argv.splice(2, 0, "run");
+if (first && !first.startsWith("-") && !BUILTIN_NAMES.includes(first) && loadConfig(false).profiles[first]) {
+  argv.splice(2, 0, "run");
+}
 
 const parse = argv.length === 2 ? (friendlyHint(), Promise.resolve()) : program.parseAsync(argv);
 parse.catch((err: unknown) => {

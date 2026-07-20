@@ -40,3 +40,4 @@ install_dir=${HATS_INSTALL_DIR:-"$HOME/.local/bin"}
 mkdir -p "$install_dir"
 install -m 755 "$tmp/hats" "$install_dir/hats"
 echo "installed hats to $install_dir/hats"
+echo "Tip: enable Tab completion: https://github.com/Colafornia/hats#shell-completion"
