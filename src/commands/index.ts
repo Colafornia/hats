@@ -6,6 +6,7 @@ import { rmCommand } from "./rm.js";
 import { editCommand } from "./edit.js";
 import { initCommand } from "./init.js";
 import { setenvCommand } from "./setenv.js";
+import { completionCommand } from "./completion.js";
 
 export const COMMANDS = [
   runCommand,
@@ -17,4 +18,5 @@ export const COMMANDS = [
   initCommand,
   rmCommand,
   editCommand,
+  completionCommand,
 ];

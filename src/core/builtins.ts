@@ -13,6 +13,7 @@ export const BUILTIN_COMMANDS: Record<string, BuiltinCommand> = {
   init: {},
   rm: { completesHat: true },
   edit: {},
+  completion: {},
 };
 
 export const BUILTIN_NAMES = Object.keys(BUILTIN_COMMANDS);

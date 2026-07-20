@@ -141,6 +141,38 @@ describe("integration: hat shorthand", () => {
 });
 
 describe("integration: shell completion", () => {
+  test("the public command emits sourceable adapters for supported shells", async () => {
+    const registrations = {
+      bash: "complete -F _hats hats",
+      zsh: "compdef _hats hats",
+      fish: "complete -c hats",
+    };
+
+    for (const [shell, registration] of Object.entries(registrations)) {
+      const r = await runCli(["completion", shell], childEnv());
+      assert.equal(r.code, 0, `${shell}: ${r.stderr}`);
+      assert.match(r.stdout, /hats __complete/, shell);
+      assert.match(r.stdout, new RegExp(registration), shell);
+    }
+
+    const unsupported = await runCli(["completion", "powershell"], childEnv());
+    assert.notEqual(unsupported.code, 0);
+    assert.match(unsupported.stderr, /unsupported shell/);
+  });
+
+  test("generating an adapter does not depend on the hats config", async () => {
+    const invalidHome = mkdtempSync(join(tmpdir(), "hats-completion-invalid-"));
+    try {
+      writeFileSync(join(invalidHome, "config.toml"), "not valid toml = [");
+      const r = await runCli(["completion", "zsh"], childEnv({ HATS_HOME: invalidHome }));
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.match(r.stdout, /compdef _hats hats/);
+    } finally {
+      rmSync(invalidHome, { recursive: true, force: true });
+    }
+  });
+
   test("top-level completion lists built-ins and configured hats", async () => {
     const r = await runCli(["__complete", "0"], childEnv());
 

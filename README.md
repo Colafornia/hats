@@ -167,9 +167,27 @@ hats exec <hat> -- <cmd>          run another command with the hat's env
 hats which <hat>                  inspect a hat, with secrets masked
 hats setenv <hat> --file .env     merge env vars from KEY=value lines
 hats rm <hat>                     delete a hat
+hats completion <shell>           output Bash, Zsh, or Fish completion code
 ```
 
 </details>
+
+## Shell completion
+
+Homebrew enables completion automatically. For other installs, add the command for
+your shell to its startup file:
+
+```zsh
+eval "$(hats completion zsh)"
+```
+
+```bash
+eval "$(hats completion bash)"
+```
+
+```fish
+hats completion fish | source
+```
 
 ## Non-goals
 
