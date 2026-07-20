@@ -140,6 +140,37 @@ describe("integration: hat shorthand", () => {
   });
 });
 
+describe("integration: config warning scope", () => {
+  test("common paths warn only when inspecting the affected hat", async () => {
+    const home = mkdtempSync(join(tmpdir(), "hats-warnings-"));
+    try {
+      writeFileSync(
+        join(home, "config.toml"),
+        'version = 1\n[profiles.target]\nlaunch = "codex"\n[profiles.legacy]\nlaunch = "claude"\nkind = "legacy"\n',
+      );
+
+      for (const args of [
+        ["rm", "missing"],
+        ["which", "target"],
+        ["setenv", "target", "--launch", "codex"],
+        ["add", "new", "codex"],
+        [],
+        ["__complete", "0"],
+      ]) {
+        const r = await runCli(args, childEnv({ HATS_HOME: home }));
+        assert.doesNotMatch(r.stderr, /profiles\.legacy\.kind/, args.join(" "));
+      }
+
+      const target = await runCli(["which", "legacy"], childEnv({ HATS_HOME: home }));
+      assert.match(target.stderr, /profiles\.legacy\.kind/);
+      const all = await runCli(["ls"], childEnv({ HATS_HOME: home }));
+      assert.match(all.stderr, /profiles\.legacy\.kind/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("integration: shell completion", () => {
   test("the public command emits sourceable adapters for supported shells", async () => {
     const registrations = {

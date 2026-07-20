@@ -41,7 +41,7 @@ export const setenvCommand = new Command("setenv")
       return;
     }
 
-    const cfg = loadConfig();
+    const cfg = loadConfig(name);
     const existed = Boolean(cfg.profiles[name]);
     let profile: Profile = cfg.profiles[name];
     if (!profile) {

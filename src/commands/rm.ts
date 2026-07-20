@@ -10,7 +10,7 @@ export const rmCommand = new Command("rm")
   .description("delete a hat (referenced .env / files are left untouched)")
   .argument("<hat>", "hat name")
   .action(async (name: string) => {
-    const cfg = loadConfig();
+    const cfg = loadConfig(name);
     if (!cfg.profiles[name]) {
       // eslint-disable-next-line no-console
       console.error(`hat "${name}" not found`);

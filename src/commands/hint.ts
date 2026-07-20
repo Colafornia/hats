@@ -7,7 +7,7 @@ import { loadConfig } from "../core/config.js";
  * `hats run <name>`.
  */
 export function friendlyHint(): void {
-  const cfg = loadConfig();
+  const cfg = loadConfig(false);
   const names = Object.keys(cfg.profiles);
   const c = (s: string) => `\x1b[36m${s}\x1b[0m`;
   const lines: string[] = [];

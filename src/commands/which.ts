@@ -8,7 +8,7 @@ export const whichCommand = new Command("which")
   .description("show what a hat would inject (secrets masked, cmd: not executed)")
   .argument("<hat>", "hat name")
   .action((name: string) => {
-    const cfg = loadConfig();
+    const cfg = loadConfig(name);
     const profile = getProfile(cfg, name);
 
     const lines: string[] = [];

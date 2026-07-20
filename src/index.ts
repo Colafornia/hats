@@ -5,7 +5,7 @@ import { BUILTIN_COMMANDS, BUILTIN_NAMES, COMPLETE_COMMAND } from "./core/builti
 if (process.argv[2] === COMPLETE_COMMAND) {
   try {
     const position = Number(process.argv[3]);
-    const profiles = Object.keys(loadConfig().profiles);
+    const profiles = Object.keys(loadConfig(false).profiles);
     const command = BUILTIN_COMMANDS[process.argv[4]];
     let candidates =
       position === 0

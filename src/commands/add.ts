@@ -28,7 +28,7 @@ function addPositional(name: string, command: string[], opts: { isolated?: boole
     const { varName, path } = resolveConfigHome(name, launch);
     profile.env = { [varName]: path };
   }
-  const cfg = loadConfig();
+  const cfg = loadConfig(name);
   if (cfg.profiles[name]) {
     p.log.error(`hat "${name}" already exists`);
     process.exit(1);
@@ -43,7 +43,7 @@ function addPositional(name: string, command: string[], opts: { isolated?: boole
 
 /** Thin interactive wizard: 3 questions + optional "open editor to add env". */
 async function addInteractive(): Promise<void> {
-  const cfg = loadConfig();
+  const cfg = loadConfig(false);
   const existing = new Set(profileNames(cfg));
 
   const name = await p.text({
