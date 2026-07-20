@@ -11,18 +11,22 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
 </p>
 
+<p align="center">
+  <img src="assets/demo.gif" width="900" alt="Two isolated Codex profiles running side by side with different providers">
+</p>
+
 ## Install
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/Colafornia/hats/main/install.sh | sh
-```
-
-No Node.js, Bun, `sudo`, or shell startup-file changes required.
-
-Prefer Homebrew?
+**Homebrew (recommended)**
 
 ```bash
 brew install colafornia/tap/hats
+```
+
+**Standalone installer**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Colafornia/hats/main/install.sh | sh
 ```
 
 ## Quick start
