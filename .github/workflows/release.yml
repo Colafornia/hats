@@ -5,7 +5,7 @@ name: release
 # regenerates a Homebrew tap formula (if HOMEBREW_TAP_TOKEN is set).
 #
 # Local smoke test before pushing a tag:
-#   bun build --compile --define 'process.env.HATS_VERSION="0.1.0"' src/index.ts --outfile hats
+#   bun build --compile --define 'process.env.HATS_VERSION="0.2.0"' src/index.ts --outfile hats
 #   ./hats --version && ./hats ls && ./hats which rc
 
 on:
