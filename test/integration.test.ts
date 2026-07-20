@@ -1,7 +1,7 @@
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,6 +69,166 @@ function runCli(args: string[], env: Record<string, string>): Promise<RunResult>
     });
   });
 }
+
+function readLines(path: string): string[] {
+  return readFileSync(path, "utf8").trim().split("\n");
+}
+
+async function readEventually(path: string, count: number): Promise<string[]> {
+  for (let i = 0; i < 100; i++) {
+    try {
+      const lines = readLines(path);
+      if (lines.length >= count) return lines;
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return readLines(path);
+}
+
+function herdrFixture(herdrTail = "", launch = "", agentExit = 0): { home: string; bin: string; log: string } {
+  const home = mkdtempSync(join(tmpdir(), "hats-herdr-"));
+  const bin = join(home, "bin");
+  const log = join(home, "herdr.log");
+  const herdr = join(bin, "herdr");
+  const agent = join(home, "agent");
+  mkdirSync(bin);
+  writeFileSync(
+    agent,
+    `#!/bin/sh\ntest -z "$AGENT_LOG" || printf 'agent\\n' >> "$AGENT_LOG"\nexit ${agentExit}\n`,
+    { mode: 0o755 },
+  );
+  writeFileSync(join(home, "config.toml"), `[profiles.gpt]\nlaunch = "${launch || agent}"\n`);
+  writeFileSync(
+    herdr,
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> "$HERDR_LOG"\n${herdrTail}`,
+    { mode: 0o755 },
+  );
+  return { home, bin, log };
+}
+
+describe("integration: Herdr active hat metadata", () => {
+  test("does not wait for slow Herdr calls", async () => {
+    const { home, bin } = herdrFixture();
+    try {
+      writeFileSync(join(bin, "herdr"), "#!/usr/bin/env node\nsetTimeout(() => {}, 5000);\n", { mode: 0o755 });
+      const started = Date.now();
+      const r = await runCli(
+        ["run", "gpt"],
+        childEnv({
+          HATS_HOME: home,
+          HERDR_PANE_ID: "pane-7",
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+        }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.ok(Date.now() - started < 1500, "slow Herdr must not delay hats");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("reports the active hat and clears it after a non-zero exit", async () => {
+    const { home, bin, log } = herdrFixture("", "", 7);
+    try {
+      const r = await runCli(
+        ["run", "gpt"],
+        childEnv({
+          HATS_HOME: home,
+          HERDR_PANE_ID: "pane-7",
+          HERDR_LOG: log,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+        }),
+      );
+
+      assert.equal(r.code, 7, r.stderr);
+      assert.deepEqual((await readEventually(log, 2)).sort(), [
+        "pane report-metadata pane-7 --source hats --clear-token hat",
+        "pane report-metadata pane-7 --source hats --token hat=gpt",
+      ]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("does not invoke Herdr without a pane id", async () => {
+    const { home, bin, log } = herdrFixture();
+    try {
+      const r = await runCli(
+        ["run", "gpt"],
+        childEnv({ HATS_HOME: home, HERDR_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.throws(() => readFileSync(log), /ENOENT/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("ignores a failing Herdr CLI", async () => {
+    const { home, bin, log } = herdrFixture("exit 9\n");
+    try {
+      const r = await runCli(
+        ["run", "gpt"],
+        childEnv({
+          HATS_HOME: home,
+          HERDR_PANE_ID: "pane-7",
+          HERDR_LOG: log,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+        }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal((await readEventually(log, 2)).length, 2);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("does not report metadata for hats exec", async () => {
+    const { home, bin, log } = herdrFixture();
+    try {
+      const r = await runCli(
+        ["exec", "gpt", "--", "node", "-e", "process.exit(0)"],
+        childEnv({
+          HATS_HOME: home,
+          HERDR_PANE_ID: "pane-7",
+          HERDR_LOG: log,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+        }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.throws(() => readFileSync(log), /ENOENT/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("clears metadata when the agent fails to spawn", async () => {
+    const { home, bin, log } = herdrFixture("", "missing-hats-agent");
+    try {
+      const r = await runCli(
+        ["run", "gpt"],
+        childEnv({
+          HATS_HOME: home,
+          HERDR_PANE_ID: "pane-7",
+          HERDR_LOG: log,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+        }),
+      );
+
+      assert.notEqual(r.code, 0);
+      assert.deepEqual((await readEventually(log, 2)).sort(), [
+        "pane report-metadata pane-7 --source hats --clear-token hat",
+        "pane report-metadata pane-7 --source hats --token hat=gpt",
+      ]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("integration: hats exec through the real CLI", () => {
   test("-v prints the version", async () => {

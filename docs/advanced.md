@@ -55,6 +55,19 @@ hats add local-claude ollama launch claude --model your-model
 hats run local-claude
 ```
 
+## Herdr sidebar
+
+When a hat runs inside a Herdr pane, hats reports its name as the `$hat` metadata token.
+Show it in the Agent sidebar with:
+
+```toml
+[ui.sidebar.agents]
+rows = [
+  ["state_icon", "agent", "$hat"],
+  ["workspace", "tab"],
+]
+```
+
 ## Configuration file
 
 hats stores its config at `~/.config/hats/config.toml`:

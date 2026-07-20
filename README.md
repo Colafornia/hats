@@ -79,7 +79,7 @@ Most AI CLI switchers mutate global state: they export provider env vars, rewrit
 tool config, or silently change what every terminal will use next. That breaks down when
 you need more than one setup open at once.
 
-`hats` makes each launch explicit and local to one child process. It also removes
+hats makes each launch explicit and local to one child process. It also removes
 inherited provider credentials such as `ANTHROPIC_*`, `OPENAI_*`, and `CODEX_*` unless
 the selected hat adds them back intentionally.
 
@@ -147,6 +147,8 @@ hats fails clearly instead of claiming the accounts are separated:
 - OpenCode stores credentials outside its config home. Use provider keys through the
   hat's `env` or `env_file`; redirecting `XDG_DATA_HOME` would affect every XDG app in
   the child process and is not recommended.
+
+When running inside Herdr, the Agent sidebar can show the active hats profile.
 
 hats does not manage OAuth or report login state. The underlying CLI remains responsible
 for login and token refresh.

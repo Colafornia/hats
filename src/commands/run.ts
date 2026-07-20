@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { spawn } from "node:child_process";
 import { loadConfig, type Profile } from "../core/config.js";
 import { getProfile } from "../core/profile.js";
 import { assembleEnv } from "../core/env.js";
@@ -11,6 +12,29 @@ function banner(profile: Profile, env: { configDir?: string; stripped: string[] 
   if (env.stripped.length) parts.push(`stripped ${env.stripped.length}`);
   // eslint-disable-next-line no-console
   console.error(`\x1b[36m${parts.join(" · ")}\x1b[0m`);
+}
+
+function withHerdrHat(name: string, run: () => Promise<number>): Promise<number> {
+  const paneId = process.env.HERDR_PANE_ID;
+  if (!paneId) return run();
+
+  const report = (event: "before" | "after") => {
+    try {
+      const metadata = event === "before" ? ["--token", `hat=${name}`] : ["--clear-token", "hat"];
+      const child = spawn("herdr", ["pane", "report-metadata", paneId, "--source", "hats", ...metadata], {
+        stdio: "ignore",
+      });
+      child.unref();
+      const timer = setTimeout(() => child.kill(), 1_000);
+      timer.unref();
+      const done = () => clearTimeout(timer);
+      child.once("error", done);
+      child.once("exit", done);
+    } catch {}
+  };
+
+  report("before");
+  return run().finally(() => report("after"));
 }
 
 async function launch(
@@ -31,7 +55,8 @@ async function launch(
   }
   argv = [...argv, ...extraArgs];
 
-  return runChild(argv, { env });
+  const run = () => runChild(argv, { env });
+  return override ? run() : withHerdrHat(profile.name, run);
 }
 
 export const runCommand = new Command("run")
