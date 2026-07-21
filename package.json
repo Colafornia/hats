@@ -1,6 +1,6 @@
 {
   "name": "hats",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Per-terminal / per-process config isolator for Claude Code, Codex, and any CLI — switch hats without polluting your shell.",
   "type": "module",
   "bin": {
