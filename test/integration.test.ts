@@ -234,7 +234,7 @@ describe("integration: hats exec through the real CLI", () => {
   test("-v prints the version", async () => {
     const r = await runCli(["-v"], childEnv());
     assert.equal(r.code, 0, `stderr: ${r.stderr}`);
-    assert.equal(r.stdout.trim(), "0.2.0");
+    assert.equal(r.stdout.trim(), "0.3.0");
   });
 
   test("exit code is passed through (E1)", async () => {
