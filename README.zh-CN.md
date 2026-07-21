@@ -35,7 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/Colafornia/hats/main/install.sh | s
 
 ## 快速开始
 
-为任意 AI CLI 创建一套运行配置（hat）：
+为 Claude Code、Codex 或其他命令行 AI 工具创建一套运行配置（hat）：
 
 ```bash
 hats add work claude
