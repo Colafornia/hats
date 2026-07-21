@@ -4,7 +4,11 @@
 
 <h1 align="center">hats</h1>
 
-<p align="center">Run multiple AI CLI setups side by side — one hat per terminal, zero shell pollution.</p>
+<p align="center">
+  English | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">Run Claude Code, Codex, and other command-line AI tools with different providers concurrently — without switching shared configuration.</p>
 
 <p align="center">
   <a href="https://github.com/Colafornia/hats/actions/workflows/ci.yml"><img src="https://github.com/Colafornia/hats/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
@@ -31,29 +35,38 @@ curl -fsSL https://raw.githubusercontent.com/Colafornia/hats/main/install.sh | s
 
 ## Quick start
 
+Create a hat for any AI CLI:
+
 ```bash
 hats add work claude
 hats work
 ```
 
-That is the whole default workflow. A hat starts its CLI in a clean child process with
-the config you chose. Your current shell and other terminals stay unchanged.
+Each run applies that hat's environment only to the launched process. Other terminals
+keep running with their existing providers.
 
-Create a hat by naming it and the CLI it should launch:
+Run `hats add` without arguments for guided setup. To configure provider variables,
+use `hats edit` or see [Advanced configuration](docs/advanced.md).
 
-```bash
-hats add personal codex
-hats personal
-```
+## Why
 
-To feed one env file to different CLIs, create both hats and point them at the same file
-with `hats edit`:
+Your work terminal uses a company gateway. Another terminal uses a personal API account
+or a local model. Global switchers make only one shared configuration current.
 
-```bash
-hats add write claude
-hats add review codex
-hats edit
-```
+hats applies each hat only to the process it launches, so both setups can keep running
+at the same time.
+
+To prevent accidental overrides, hats removes inherited provider credentials such as
+`ANTHROPIC_*`, `OPENAI_*`, and `CODEX_*` before applying the variables configured for
+the selected hat.
+
+See [Advanced configuration](docs/advanced.md) for env references, local models, and
+manual configuration.
+
+## Share an environment across CLIs
+
+Point multiple hats at the same environment file when Claude and Codex use the same
+company gateway:
 
 ```toml
 [profiles.write]
@@ -67,91 +80,23 @@ env_file = "~/.config/company-ai.env"
 
 ```bash
 hats write
-hats review  # another terminal, same env file, independent process
+hats review  # run in another terminal
 ```
 
-`hats add` without arguments opens a short wizard. Use `hats edit` for hand-written
-config and advanced env references.
+## Optional: isolate CLI state
 
-## Why
-
-Most AI CLI switchers mutate global state: they export provider env vars, rewrite shared
-tool config, or silently change what every terminal will use next. That breaks down when
-you need more than one setup open at once.
-
-hats makes each launch explicit and local to one child process. It also removes
-inherited provider credentials such as `ANTHROPIC_*`, `OPENAI_*`, and `CODEX_*` unless
-the selected hat adds them back intentionally.
-
-Use hats for company gateways, personal subscriptions, local models, or any CLI that
-needs a repeatable per-process environment. See
-[Advanced configuration](docs/advanced.md) for env references, shared env files, local
-models, and hand-written config.
-
-## Run multiple subscriptions side by side
-
-Multiple subscriptions are optional. The simple `hats <name>` workflow above does not
-require isolated CLI homes.
-
-hats supports isolated accounts for **Codex** and **Claude Code**. Each isolated hat
-gets its own login, config, history, and settings, so work and personal subscriptions can
-run at the same time without overwriting each other.
-
-### Two Codex accounts
+Provider environments are process-local by default, but hats for the same CLI still
+share the CLI's normal config home. Add `--isolated` when a hat also needs its own home:
 
 ```bash
-hats add codex-work codex --isolated
-hats add codex-personal codex --isolated
-
-hats codex-work login
-hats codex-personal login
-
-hats codex-work
-# In another terminal:
-hats codex-personal
+hats add personal codex --isolated
 ```
 
-### Two Claude Code accounts
+Files stored in that home—including settings, MCP configuration, plugins, and history—
+remain separate. Built-in config-home isolation is available for Codex and Claude Code.
 
-```bash
-hats add claude-work claude --isolated
-hats add claude-personal claude --isolated
-
-hats claude-work
-# In another terminal:
-hats claude-personal
-```
-
-Codex opens `login`; Claude Code opens its onboarding flow on first run. Complete each
-login once, then launch that account anytime with its hat name.
-
-### How isolation works
-
-`--isolated` creates a dedicated CLI home under `~/.config/hats/homes/<name>`. hats
-also removes inherited provider credentials from the child process, preventing a
-shell-level API key from silently overriding the selected OAuth account. Add a key
-explicitly to the hat only when that override is intentional.
-
-Use a recent Claude Code release: isolated Claude accounts rely on its per-directory
-keychain storage.
-
-### Other CLIs
-
-hats can launch any CLI with per-process env and config. Credential-home isolation is
-currently available for Codex and Claude Code. For tools with shared credential storage,
-hats fails clearly instead of claiming the accounts are separated:
-
-- Gemini uses a fixed keychain entry. Use explicit env configuration with
-  `GEMINI_CLI_HOME` and `GEMINI_FORCE_FILE_STORAGE=true` if you accept that manual
-  setup.
-- OpenCode stores credentials outside its config home. Use provider keys through the
-  hat's `env` or `env_file`; redirecting `XDG_DATA_HOME` would affect every XDG app in
-  the child process and is not recommended.
-
-When running inside Herdr, the Agent sidebar can show the active hats profile.
-
-hats does not manage OAuth or report login state. The underlying CLI remains responsible
-for login and token refresh.
+This isolates local CLI state. Authentication and OAuth behavior remain controlled by
+the underlying CLI.
 
 ## Commands
 
@@ -195,15 +140,25 @@ eval "$(hats completion bash)"
 hats completion fish | source
 ```
 
+## Other CLIs and limitations
+
+hats can still launch other CLIs with a process-local environment. If hats cannot infer
+a safe config home, `--isolated` returns an error:
+
+- OpenCode stores credentials outside its config home. Use provider keys through the
+  hat's `env` or `env_file`. hats does not redirect `XDG_DATA_HOME` because that would
+  affect every XDG-aware process launched by the CLI.
+
 ## Non-goals
 
 - No global provider switching.
-- No credential vault.
-- No OAuth management. The underlying CLI still owns login and refresh.
-- No automatic `.zshrc` migration.
-- No GUI desktop app launching in v0.1.
-- No interactive hat picker. Switching stays explicit: `hats <name>`.
+- No credential vault or OAuth management.
+- No interactive hat picker. Launching stays explicit: `hats <name>`.
+
+## Support
+
+Found a bug or have an idea? [Open an issue](https://github.com/Colafornia/hats/issues).
 
 ## License
 
-MIT
+[MIT](LICENSE)

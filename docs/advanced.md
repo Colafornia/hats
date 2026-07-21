@@ -26,24 +26,29 @@ env = {
 
 ## Share a gateway between Claude and Codex
 
-Point both hats to one env file:
+Share the gateway URL through one env file, then reference each credential separately:
 
 ```toml
 [profiles.company-claude]
 launch = "claude"
 env_file = "~/.config/hats/company.env"
+env = {
+  ANTHROPIC_BASE_URL = "${COMPANY_AI_URL}",
+  ANTHROPIC_AUTH_TOKEN = "file:~/.config/hats/anthropic.token"
+}
 
 [profiles.company-codex]
 launch = "codex"
 env_file = "~/.config/hats/company.env"
+env = {
+  OPENAI_BASE_URL = "${COMPANY_AI_URL}/v1",
+  OPENAI_API_KEY = "file:~/.config/hats/openai.key"
+}
 ```
 
 ```dotenv
 # ~/.config/hats/company.env
-ANTHROPIC_BASE_URL=https://gateway.example
-ANTHROPIC_AUTH_TOKEN=file:~/.config/hats/anthropic.token
-OPENAI_BASE_URL=https://gateway.example/v1
-OPENAI_API_KEY=file:~/.config/hats/openai.key
+COMPANY_AI_URL=https://gateway.example
 ```
 
 ## Local AI model
@@ -59,6 +64,8 @@ hats run local-claude
 
 When a hat runs inside a Herdr pane, hats reports its name as the `$hat` metadata token.
 Show it in the Agent sidebar with:
+
+<img src="../assets/herdr-sidebar.png" width="320" alt="Herdr Agent sidebar showing Codex profiles labeled with their active hats">
 
 ```toml
 [ui.sidebar.agents]
@@ -100,6 +107,10 @@ Set `HATS_HOME` to use a different config directory.
 hats reads credential references at run time and does not copy their contents into its
 config.
 
+The `env:`, `file:`, and `cmd:` references are supported only in inline `env` values.
+In `env_file`, those prefixes remain literal, while a leading `~/` and `$VAR` or
+`${VAR}` references are expanded.
+
 | Prefix | Source |
 | --- | --- |
 | `env:NAME` | current environment variable |
@@ -119,22 +130,23 @@ CLAUDE_*
 CODEX_*
 OPENAI_*
 GEMINI_*
-GOOGLE_*
+GOOGLE_API_KEY
+GOOGLE_GENERATIVE_AI_API_KEY
 ```
 
 It then applies the profile's env file and inline variables. Non-provider variables such
 as `OLLAMA_HOST`, proxy settings, `EDITOR`, and locale stay intact.
 
-## Separate CLI homes
+## Separate CLI state
 
-By default, a hat shares the tool's normal config directory. Add `--home` when the
-profile needs a separate login and config home:
+By default, a hat shares the tool's normal config directory. Add `--isolated` when the
+profile needs its own supported config home:
 
-| Launch starts with | Env var set by `--home` |
+| Launch starts with | Env var set by `--isolated` |
 | --- | --- |
 | `codex` | `CODEX_HOME` |
 | `claude` | `CLAUDE_CONFIG_DIR` |
-| `gemini` | `GEMINI_CLI_HOME` |
 
-`--home` only infers from a bare `codex`, `claude`, or `gemini` first token. Set the
-config-home environment variable by hand for wrappers and custom launchers.
+This separates local CLI state; it does not guarantee that multiple OAuth subscriptions
+can coexist. `--isolated` only infers from a bare `codex` or `claude` first token. Set
+the config-home environment variable by hand for wrappers and custom launchers.
