@@ -23,6 +23,8 @@ _hats() {
   compadd -- "\${candidates[@]}"
 }
 
+_hats "$@"
+
 compdef _hats hats
 `,
   fish: `function __hats_complete

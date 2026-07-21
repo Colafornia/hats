@@ -364,6 +364,12 @@ describe("integration: shell completion", () => {
     }
   });
 
+  test("the zsh adapter runs on its first Homebrew autoload", async () => {
+    const r = await runCli(["completion", "zsh"], childEnv());
+
+    assert.match(r.stdout, /\n_hats "\$@"\n\ncompdef _hats hats/);
+  });
+
   test("top-level completion lists built-ins and configured hats", async () => {
     const r = await runCli(["__complete", "0"], childEnv());
 
