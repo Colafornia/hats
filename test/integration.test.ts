@@ -231,6 +231,26 @@ describe("integration: Herdr active hat metadata", () => {
 });
 
 describe("integration: hats exec through the real CLI", () => {
+  test("creates an isolated config home before launching the child", async () => {
+    const home = mkdtempSync(join(tmpdir(), "hats-isolated-"));
+    const configHome = join(home, "homes", "codex-paid");
+    try {
+      writeFileSync(
+        join(home, "config.toml"),
+        `[profiles.codex-paid]\nlaunch = "codex"\nenv = { CODEX_HOME = "${configHome}" }\n`,
+      );
+
+      const r = await runCli(
+        ["exec", "codex-paid", "--", "node", "-e", "process.exit(require('node:fs').existsSync(process.env.CODEX_HOME) ? 0 : 9)"],
+        childEnv({ HATS_HOME: home }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   test("-v prints the version", async () => {
     const r = await runCli(["-v"], childEnv());
     assert.equal(r.code, 0, `stderr: ${r.stderr}`);

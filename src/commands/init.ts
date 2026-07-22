@@ -14,13 +14,13 @@ version = 1
 [profiles.codex]
 launch = "codex"
 
-# Official Codex, isolated login/config home (separate OAuth account).
-# Created with: hats add codex-personal codex --isolated
+# Official Codex with an isolated config home (not an OAuth concurrency guarantee).
+# Created with: hats add codex-clean codex --isolated
 # hats infers CODEX_HOME from the launch first token; the path lives under
 # ~/.config/hats/homes/<name> (i.e. $HATS_HOME/homes/<name>).
-[profiles.codex-personal]
+[profiles.codex-clean]
 launch = "codex"
-env = { CODEX_HOME = "~/.config/hats/homes/codex-personal" }
+env = { CODEX_HOME = "~/.config/hats/homes/codex-clean" }
 
 # A relay / gateway: point claude at a provider with a token.
 # Credentials stay where they are — hats only references them (file:/env:/cmd:).

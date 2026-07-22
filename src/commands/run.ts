@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { spawn } from "node:child_process";
+import { mkdirSync } from "node:fs";
 import { loadConfig, type Profile } from "../core/config.js";
 import { getProfile } from "../core/profile.js";
 import { assembleEnv } from "../core/env.js";
@@ -43,6 +44,7 @@ async function launch(
   override?: string[],
 ): Promise<number> {
   const { env, ...summary } = await assembleEnv(profile);
+  if (summary.configDir) mkdirSync(summary.configDir, { recursive: true });
   banner(profile, { configDir: summary.configDir, stripped: summary.stripped });
 
   let argv: string[];

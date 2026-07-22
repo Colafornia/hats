@@ -3,7 +3,6 @@ import * as p from "@clack/prompts";
 import { quote } from "shell-quote";
 import { addProfile, loadConfig, type Profile } from "../core/config.js";
 import {
-  launchFirstToken,
   profileNames,
   resolveConfigHome,
   ProfileError,
@@ -35,9 +34,6 @@ function addPositional(name: string, command: string[], opts: { isolated?: boole
   }
   addProfile(profile);
   p.log.success(`created hat "${name}"${isolated ? ` · config: ${profile.env && Object.values(profile.env)[0]}` : ""}`);
-  if (isolated && launchFirstToken(launch) === "claude") {
-    p.log.warn("Claude isolation requires a recent version with per-directory keychain credentials; upgrade if unsure");
-  }
   p.log.info(`next: hats ${name}`);
 }
 
@@ -67,7 +63,7 @@ async function addInteractive(): Promise<void> {
   try {
     // Probe inference first so we can warn early if isolation won't work for this launch.
     resolveConfigHome(name as string, launch as string);
-    const ans = await p.confirm({ message: "Use separate login for this hat?", initialValue: false });
+    const ans = await p.confirm({ message: "Use an isolated CLI config home?", initialValue: false });
     if (p.isCancel(ans)) return p.cancel("cancelled");
     useHome = ans;
   } catch (e) {
