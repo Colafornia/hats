@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { loadConfig, type Profile } from "../core/config.js";
 import { getProfile } from "../core/profile.js";
@@ -38,6 +38,27 @@ function withHerdrHat(name: string, run: () => Promise<number>): Promise<number>
   return run().finally(() => report("after"));
 }
 
+function reportTmuxHat(name?: string): void {
+  const pane = process.env.TMUX && process.env.TMUX_PANE;
+  if (!pane) return;
+
+  const args = name
+    ? ["set-option", "-p", "-t", pane, "@hats_profile", name]
+    : ["set-option", "-p", "-u", "-t", pane, "@hats_profile"];
+  try {
+    spawnSync("tmux", args, { stdio: "ignore", timeout: 250, killSignal: "SIGKILL" });
+  } catch {}
+}
+
+async function withTmuxHat(name: string, run: () => Promise<number>): Promise<number> {
+  reportTmuxHat(name);
+  try {
+    return await run();
+  } finally {
+    reportTmuxHat();
+  }
+}
+
 async function launch(
   profile: Profile,
   extraArgs: string[],
@@ -58,7 +79,7 @@ async function launch(
   argv = [...argv, ...extraArgs];
 
   const run = () => runChild(argv, { env });
-  return override ? run() : withHerdrHat(profile.name, run);
+  return override ? run() : withHerdrHat(profile.name, () => withTmuxHat(profile.name, run));
 }
 
 export const runCommand = new Command("run")

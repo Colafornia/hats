@@ -1,6 +1,6 @@
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -101,6 +101,26 @@ function herdrFixture(herdrTail = "", launch = "", agentExit = 0): { home: strin
   writeFileSync(
     herdr,
     `#!/bin/sh\nprintf '%s\\n' "$*" >> "$HERDR_LOG"\n${herdrTail}`,
+    { mode: 0o755 },
+  );
+  return { home, bin, log };
+}
+
+function tmuxFixture(tmuxTail = "", launch = "", agentExit = 0): { home: string; bin: string; log: string } {
+  const home = mkdtempSync(join(tmpdir(), "hats-tmux-"));
+  const bin = join(home, "bin");
+  const log = join(home, "events.log");
+  const agent = join(home, "agent");
+  mkdirSync(bin);
+  writeFileSync(
+    agent,
+    `#!/bin/sh\nprintf 'agent:%s\n' "$HATS_PROFILE" >> "$EVENT_LOG"\nexit ${agentExit}\n`,
+    { mode: 0o755 },
+  );
+  writeFileSync(join(home, "config.toml"), `[profiles.work]\nlaunch = "${launch || agent}"\nenv = { HATS_PROFILE = "forged" }\n`);
+  writeFileSync(
+    join(bin, "tmux"),
+    `#!/bin/sh\nprintf 'tmux:%s\n' "$*" >> "$EVENT_LOG"\n${tmuxTail}exit 0\n`,
     { mode: 0o755 },
   );
   return { home, bin, log };
@@ -230,7 +250,187 @@ describe("integration: Herdr active hat metadata", () => {
   });
 });
 
+describe("integration: tmux active hat metadata", () => {
+  test("sets pane metadata before run and clears it after a normal exit", async () => {
+    const { home, bin, log } = tmuxFixture();
+    try {
+      spawnSync(join(bin, "tmux"), [], { env: { ...process.env, EVENT_LOG: "/dev/null" } });
+      const r = await runCli(
+        ["run", "work"],
+        childEnv({
+          HATS_HOME: home,
+          TMUX: "/tmp/tmux/default,1,0",
+          TMUX_PANE: "%7",
+          EVENT_LOG: log,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+        }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.deepEqual(readLines(log), [
+        "tmux:set-option -p -t %7 @hats_profile work",
+        "agent:work",
+        "tmux:set-option -p -u -t %7 @hats_profile",
+      ]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("clears pane metadata after a non-zero exit", async () => {
+    const { home, bin, log } = tmuxFixture("", "", 7);
+    try {
+      spawnSync(join(bin, "tmux"), [], { env: { ...process.env, EVENT_LOG: "/dev/null" } });
+      const r = await runCli(
+        ["run", "work"],
+        childEnv({ HATS_HOME: home, TMUX: "socket", TMUX_PANE: "%8", EVENT_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` }),
+      );
+
+      assert.equal(r.code, 7, r.stderr);
+      assert.deepEqual(readLines(log), [
+        "tmux:set-option -p -t %8 @hats_profile work",
+        "agent:work",
+        "tmux:set-option -p -u -t %8 @hats_profile",
+      ]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("clears pane metadata when the agent fails to spawn", async () => {
+    const { home, bin, log } = tmuxFixture("", "missing-hats-agent");
+    try {
+      spawnSync(join(bin, "tmux"), [], { env: { ...process.env, EVENT_LOG: "/dev/null" } });
+      const r = await runCli(
+        ["run", "work"],
+        childEnv({ HATS_HOME: home, TMUX: "socket", TMUX_PANE: "%9", EVENT_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` }),
+      );
+
+      assert.notEqual(r.code, 0);
+      assert.deepEqual(readLines(log), [
+        "tmux:set-option -p -t %9 @hats_profile work",
+        "tmux:set-option -p -u -t %9 @hats_profile",
+      ]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("does not invoke tmux without both tmux environment variables", async () => {
+    const { home, bin, log } = tmuxFixture();
+    try {
+      const r = await runCli(
+        ["run", "work"],
+        childEnv({ HATS_HOME: home, TMUX: "socket", EVENT_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.deepEqual(readLines(log), ["agent:work"]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("does not invoke tmux for hats exec", async () => {
+    const { home, bin, log } = tmuxFixture();
+    try {
+      const r = await runCli(
+        ["exec", "work", "--", "node", "-e", "require('node:fs').appendFileSync(process.env.EVENT_LOG, 'exec:' + process.env.HATS_PROFILE + '\\n')"],
+        childEnv({ HATS_HOME: home, TMUX: "socket", TMUX_PANE: "%10", EVENT_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.deepEqual(readLines(log), ["exec:work"]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("tmux failures do not change the agent exit code", async () => {
+    const { home, bin, log } = tmuxFixture("exit 9\n", "", 7);
+    try {
+      spawnSync(join(bin, "tmux"), [], { env: { ...process.env, EVENT_LOG: "/dev/null" } });
+      const r = await runCli(
+        ["run", "work"],
+        childEnv({ HATS_HOME: home, TMUX: "socket", TMUX_PANE: "%11", EVENT_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` }),
+      );
+
+      assert.equal(r.code, 7, r.stderr);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("slow tmux calls time out without changing the agent exit code", async () => {
+    const { home, bin, log } = tmuxFixture("trap '' TERM\nexec sleep 2\n", "", 7);
+    try {
+      const started = Date.now();
+      const r = await runCli(
+        ["run", "work"],
+        childEnv({ HATS_HOME: home, TMUX: "socket", TMUX_PANE: "%12", EVENT_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` }),
+      );
+
+      assert.equal(r.code, 7, r.stderr);
+      assert.ok(Date.now() - started < 2_000, "two tmux calls must add no more than two 250ms timeouts");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("updates Herdr and tmux when both are present", async () => {
+    const { home, bin, log } = tmuxFixture();
+    try {
+      writeFileSync(
+        join(bin, "herdr"),
+        "#!/bin/sh\nprintf 'herdr:%s\\n' \"$*\" >> \"$EVENT_LOG\"\n",
+        { mode: 0o755 },
+      );
+      spawnSync(join(bin, "tmux"), [], { env: { ...process.env, EVENT_LOG: "/dev/null" } });
+      const r = await runCli(
+        ["run", "work"],
+        childEnv({
+          HATS_HOME: home,
+          HERDR_PANE_ID: "pane-13",
+          TMUX: "socket",
+          TMUX_PANE: "%13",
+          EVENT_LOG: log,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+        }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      const events = await readEventually(log, 5);
+      assert.ok(events.includes("tmux:set-option -p -t %13 @hats_profile work"));
+      assert.ok(events.includes("tmux:set-option -p -u -t %13 @hats_profile"));
+      assert.ok(events.includes("herdr:pane report-metadata pane-13 --source hats --token hat=work"));
+      assert.ok(events.includes("herdr:pane report-metadata pane-13 --source hats --clear-token hat"));
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("integration: hats exec through the real CLI", () => {
+  test("HATS_PROFILE identifies the selected hat and cannot be overridden by profile env", async () => {
+    const home = mkdtempSync(join(tmpdir(), "hats-profile-env-"));
+    try {
+      writeFileSync(
+        join(home, "config.toml"),
+        '[profiles.work]\nlaunch = "node"\nenv = { HATS_PROFILE = "forged" }\n',
+      );
+
+      const r = await runCli(
+        ["exec", "work", "--", "printenv", "HATS_PROFILE"],
+        childEnv({ HATS_HOME: home, HATS_PROFILE: "inherited" }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(r.stdout.trim(), "work");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   test("creates an isolated config home before launching the child", async () => {
     const home = mkdtempSync(join(tmpdir(), "hats-isolated-"));
     const configHome = join(home, "homes", "codex-paid");

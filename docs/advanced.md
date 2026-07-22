@@ -60,7 +60,31 @@ hats add local-claude ollama launch claude --model your-model
 hats run local-claude
 ```
 
-## Herdr sidebar
+## Active hat indicators
+
+hats exposes the selected profile through several independent indicators:
+
+| Indicator | `hats run` | `hats exec` | Lifetime |
+| --- | --- | --- | --- |
+| Launch banner | yes | yes | printed once |
+| Child `HATS_PROFILE` environment variable | yes | yes | child process |
+| Herdr `$hat` metadata | yes | no | while the launched command runs |
+| tmux pane option `@hats_profile` | yes | no | while the launched command runs |
+
+`HATS_PROFILE` always contains the actual profile key. It overrides inherited values,
+env files, and inline profile env values with the same name.
+
+### tmux pane borders
+
+Inside tmux, `hats run` exposes the active profile as the pane option `@hats_profile`
+until the command exits. For example, add this to `~/.tmux.conf` and adapt it to your layout:
+
+```tmux
+set -g pane-border-status top
+set -g pane-border-format ' #{@hats_profile} '
+```
+
+### Herdr sidebar
 
 When a hat runs inside a Herdr pane, hats reports its name as the `$hat` metadata token.
 Show it in the Agent sidebar with:

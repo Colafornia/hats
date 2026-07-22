@@ -128,6 +128,14 @@ eval "$(hats completion bash)"
 hats completion fish | source
 ```
 
+## 可选集成
+
+- `HATS_PROFILE` 可将当前 profile 提供给脚本和状态栏。
+- tmux 可在 pane 边框显示当前 hat。
+- Herdr 可在 Agent sidebar 显示当前 hat。
+
+配置示例参见[当前 hat 标识](docs/advanced.md#active-hat-indicators)。
+
 ## 其他 CLI 与限制
 
 hats 也能为其他 CLI 注入进程级环境变量；但如果无法确定安全的配置目录，使用 `--isolated` 时会报错：

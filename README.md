@@ -140,6 +140,14 @@ eval "$(hats completion bash)"
 hats completion fish | source
 ```
 
+## Optional integrations
+
+- `HATS_PROFILE` exposes the selected profile to scripts and status lines.
+- tmux can show the active hat in pane borders.
+- Herdr can show it in the Agent sidebar.
+
+See [Active hat indicators](docs/advanced.md#active-hat-indicators) for setup examples.
+
 ## Other CLIs and limitations
 
 hats can still launch other CLIs with a process-local environment. If hats cannot infer

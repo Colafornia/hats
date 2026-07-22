@@ -99,6 +99,8 @@ export async function assembleEnv(profile: Profile): Promise<AssembledEnv> {
     env[k] = expandVars(expandTilde(env[k]), env);
   }
 
+  env.HATS_PROFILE = profile.name;
+
   const configDir = Object.keys(env).find((key) => TOOL_HOME_VARS.has(key));
   const resolvedConfigDir = configDir ? env[configDir] : undefined;
   return { env, configDir: resolvedConfigDir, stripped };
