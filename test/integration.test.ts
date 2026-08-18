@@ -411,6 +411,63 @@ describe("integration: tmux active hat metadata", () => {
 });
 
 describe("integration: hats exec through the real CLI", () => {
+  test("injects a Codex provider and rejects user provider overrides", async () => {
+    const home = mkdtempSync(join(tmpdir(), "hats-codex-provider-"));
+    const bin = join(home, "bin");
+    const log = join(home, "args.json");
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, "codex"),
+      `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(process.env.ARGS_LOG, JSON.stringify(process.argv.slice(2)))\n`,
+      { mode: 0o755 },
+    );
+    writeFileSync(
+      join(home, "config.toml"),
+      '[profiles.work]\nlaunch = "codex"\ncodex = { base_url = "https://gateway.example/v1", env_key = "OPENAI_API_KEY", model = "hat-default" }\nenv = { OPENAI_API_KEY = "secret" }\n',
+    );
+
+    try {
+      const env = childEnv({ HATS_HOME: home, ARGS_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` });
+      const ok = await runCli(["work", "-m", "cli-override"], env);
+      assert.equal(ok.code, 0, ok.stderr);
+      assert.deepEqual(JSON.parse(readFileSync(log, "utf8")), [
+        "-c", 'model_provider="hats"',
+        "-c", 'model_providers.hats.name="Hats"',
+        "-c", 'model_providers.hats.base_url="https://gateway.example/v1"',
+        "-c", 'model_providers.hats.env_key="OPENAI_API_KEY"',
+        "-c", 'model="hat-default"',
+        "-m", "cli-override",
+      ]);
+
+      for (const args of [
+        ["work", "--profile=other"],
+        ["work", "-c", 'model_provider="other"'],
+        ["work", "--config=model_providers.other.base_url=\"https://other\""],
+      ]) {
+        const blocked = await runCli(args, env);
+        assert.notEqual(blocked.code, 0);
+        assert.match(blocked.stderr, /managed by the selected hat/);
+      }
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("does not start Codex when its configured credential is empty", async () => {
+    const home = mkdtempSync(join(tmpdir(), "hats-codex-credential-"));
+    try {
+      writeFileSync(
+        join(home, "config.toml"),
+        '[profiles.work]\nlaunch = "codex"\ncodex = { base_url = "https://gateway.example/v1", env_key = "PRIVATE_TOKEN" }\nenv = { PRIVATE_TOKEN = "" }\n',
+      );
+      const r = await runCli(["work"], childEnv({ HATS_HOME: home }));
+      assert.notEqual(r.code, 0);
+      assert.match(r.stderr, /PRIVATE_TOKEN is missing or empty/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   test("HATS_PROFILE identifies the selected hat and cannot be overridden by profile env", async () => {
     const home = mkdtempSync(join(tmpdir(), "hats-profile-env-"));
     try {

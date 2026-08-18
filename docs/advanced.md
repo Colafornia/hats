@@ -3,6 +3,21 @@
 Use these options for company gateways, local models, shared environment files, or
 profiles that need separate CLI homes.
 
+## Codex provider
+
+A hat can fix the Codex provider and optionally supply its default model:
+
+```toml
+[profiles.company-codex]
+launch = "codex"
+codex = { base_url = "https://gateway.example/v1", env_key = "OPENAI_API_KEY", model = "gpt-5.6" }
+env = { OPENAI_API_KEY = "env:COMPANY_OPENAI_API_KEY" }
+```
+
+`base_url` and `env_key` are required. `model` is optional, and Codex `-m` or
+`--model` can override it for one run. Hats refuses provider/profile overrides for
+this hat.
+
 ## Company gateway
 
 Create the hat, add the gateway variables, and run it:

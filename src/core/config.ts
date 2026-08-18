@@ -18,6 +18,11 @@ export interface Profile {
   env_file?: string | string[];
   env?: Record<string, string>;
   launch?: string;
+  codex?: {
+    base_url: string;
+    env_key: string;
+    model?: string;
+  };
 }
 
 export interface HatsConfig {
@@ -47,7 +52,7 @@ export function loadConfig(warnUnknown: boolean | string = true): HatsConfig {
   const pr = (raw.profiles ?? {}) as Record<string, object>;
   for (const [name, v] of Object.entries(pr)) {
     for (const key of Object.keys(v)) {
-      if ((warnUnknown === true || warnUnknown === name) && !["desc", "env_file", "env", "launch"].includes(key)) {
+      if ((warnUnknown === true || warnUnknown === name) && !["desc", "env_file", "env", "launch", "codex"].includes(key)) {
         console.error(`warning: profiles.${name}.${key} is unknown and will be ignored`);
       }
     }
@@ -88,7 +93,7 @@ function tomlValue(value: unknown): string {
 
 function profileSection(profile: Profile): string {
   const lines = [`[profiles.${profile.name}]`];
-  for (const key of ["desc", "env_file", "launch"] as const) {
+  for (const key of ["desc", "env_file", "launch", "codex"] as const) {
     if (profile[key] !== undefined) lines.push(`${key} = ${tomlValue(profile[key])}`);
   }
   if (profile.env) {

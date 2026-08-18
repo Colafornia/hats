@@ -6,6 +6,43 @@ import { getProfile } from "../core/profile.js";
 import { assembleEnv } from "../core/env.js";
 import { parseLaunch, runChild } from "../core/spawn.js";
 
+function injectCodexProvider(profile: Profile, argv: string[], env: Record<string, string>): string[] {
+  if (argv[0] !== "codex" || !profile.codex) return argv;
+
+  const { base_url, env_key, model } = profile.codex;
+  if (typeof base_url !== "string" || !base_url || typeof env_key !== "string" || !env_key) {
+    throw new Error(`hat "${profile.name}" codex requires string base_url and env_key values`);
+  }
+  if (model !== undefined && (typeof model !== "string" || !model)) {
+    throw new Error(`hat "${profile.name}" codex model must be a non-empty string`);
+  }
+  if (!env[env_key]?.trim()) {
+    throw new Error(`hat "${profile.name}" codex credential ${env_key} is missing or empty`);
+  }
+
+  for (let i = 1; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--") break;
+    if (arg === "--profile" || arg === "-p" || arg.startsWith("--profile=") || arg.startsWith("-p=")) {
+      throw new Error("Codex profile is managed by the selected hat");
+    }
+    const config = arg === "-c" || arg === "--config" ? argv[++i] : arg.match(/^(?:-c|--config)=(.*)$/)?.[1];
+    const key = config?.split("=", 1)[0].trim();
+    if (key === "model_provider" || key === "model_providers" || key?.startsWith("model_providers.")) {
+      throw new Error(`Codex config ${key} is managed by the selected hat`);
+    }
+  }
+
+  const injected = [
+    "-c", 'model_provider="hats"',
+    "-c", 'model_providers.hats.name="Hats"',
+    "-c", `model_providers.hats.base_url=${JSON.stringify(base_url)}`,
+    "-c", `model_providers.hats.env_key=${JSON.stringify(env_key)}`,
+  ];
+  if (model) injected.push("-c", `model=${JSON.stringify(model)}`);
+  return [argv[0], ...injected, ...argv.slice(1)];
+}
+
 function banner(profile: Profile, env: { configDir?: string; stripped: string[] }): void {
   const parts: string[] = [`🎩 ${profile.name}`];
   if (profile.desc) parts.push(profile.desc);
@@ -77,6 +114,7 @@ async function launch(
     throw new Error(`hat "${profile.name}" has no launch command`);
   }
   argv = [...argv, ...extraArgs];
+  argv = injectCodexProvider(profile, argv, env);
 
   const run = () => runChild(argv, { env });
   return override ? run() : withHerdrHat(profile.name, () => withTmuxHat(profile.name, run));
