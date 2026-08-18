@@ -1,4 +1,4 @@
-import { describe, test, before, after } from "node:test";
+import { describe, test, before, after, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
@@ -68,6 +68,29 @@ function runCli(args: string[], env: Record<string, string>): Promise<RunResult>
       resolve({ code: code ?? 1, stdout, stderr });
     });
   });
+}
+
+function setupIsolatedHats(t: TestContext) {
+  const home = mkdtempSync(join(tmpdir(), "hats-test-"));
+  const bin = join(home, "bin");
+  mkdirSync(bin);
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+
+  return {
+    home,
+    writeConfig: (config: string) => writeFileSync(join(home, "config.toml"), config),
+    writeCommand: (name: string, script: string) =>
+      writeFileSync(join(bin, name), script, { mode: 0o755 }),
+    run: (args: string[], env: Record<string, string> = {}) =>
+      runCli(
+        args,
+        childEnv({
+          HATS_HOME: home,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+          ...env,
+        }),
+      ),
+  };
 }
 
 function readLines(path: string): string[] {
@@ -346,6 +369,26 @@ describe("integration: tmux active hat metadata", () => {
     }
   });
 
+  test("tracks the active hat for a replacement command", async () => {
+    const { home, bin, log } = tmuxFixture();
+    try {
+      spawnSync(join(bin, "tmux"), [], { env: { ...process.env, EVENT_LOG: "/dev/null" } });
+      const r = await runCli(
+        ["work", "--", "node", "-e", "require('node:fs').appendFileSync(process.env.EVENT_LOG, 'replacement:' + process.env.HATS_PROFILE + '\\n')"],
+        childEnv({ HATS_HOME: home, TMUX: "socket", TMUX_PANE: "%10", EVENT_LOG: log, PATH: `${bin}:${process.env.PATH ?? ""}` }),
+      );
+
+      assert.equal(r.code, 0, r.stderr);
+      assert.deepEqual(readLines(log), [
+        "tmux:set-option -p -t %10 @hats_profile work",
+        "replacement:work",
+        "tmux:set-option -p -u -t %10 @hats_profile",
+      ]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   test("tmux failures do not change the agent exit code", async () => {
     const { home, bin, log } = tmuxFixture("exit 9\n", "", 7);
     try {
@@ -478,7 +521,116 @@ describe("integration: hats exec through the real CLI", () => {
   });
 });
 
+describe("integration: replacement command isolation", () => {
+  test("preserves a manually configured CLI home for the default launch", async (t) => {
+    const hats = setupIsolatedHats(t);
+    const configHome = join(hats.home, "manual-claude-home");
+    hats.writeConfig(
+      `[profiles.work]\nlaunch = "wrapper"\nenv = { CLAUDE_CONFIG_DIR = "${configHome}" }\n`,
+    );
+    hats.writeCommand("wrapper", "#!/bin/sh\nprintf '%s\\n' \"$CLAUDE_CONFIG_DIR\"\n");
+
+    const r = await hats.run(["work"]);
+
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(r.stdout.trim(), configHome);
+  });
+
+  test("selects the config home for the actual replacement CLI", async (t) => {
+    const hats = setupIsolatedHats(t);
+    const configHome = join(hats.home, "homes", "work");
+    hats.writeConfig(
+      `[profiles.work]\nlaunch = "claude"\nenv = { CLAUDE_CONFIG_DIR = "${configHome}" }\n`,
+    );
+    hats.writeCommand(
+      "codex",
+      "#!/bin/sh\nprintf '%s\\n%s\\n%s\\n' \"$CODEX_HOME\" \"$CLAUDE_CONFIG_DIR\" \"$(test -d \"$CODEX_HOME\" && echo exists)\"\n",
+    );
+
+    const r = await hats.run(["work", "--", "codex"]);
+
+    assert.equal(r.code, 0, r.stderr);
+    assert.deepEqual(r.stdout.trim().split("\n"), [configHome, "", "exists"]);
+  });
+
+  test("runs an unknown replacement with environment isolation only", async (t) => {
+    const hats = setupIsolatedHats(t);
+    const configHome = join(hats.home, "homes", "work");
+    hats.writeConfig(
+      `[profiles.work]\nlaunch = "claude"\nenv = { CLAUDE_CONFIG_DIR = "${configHome}", PROVIDER_URL = "relay" }\n`,
+    );
+    hats.writeCommand(
+      "other-ai",
+      "#!/bin/sh\nprintf '%s\\n%s\\n' \"$CLAUDE_CONFIG_DIR\" \"$PROVIDER_URL\"\n",
+    );
+
+    const r = await hats.run(["work", "--", "other-ai"]);
+
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(r.stdout, "\nrelay\n");
+    assert.match(r.stderr, /config: \(environment only\)/);
+  });
+
+  test("adapts the actual replacement Codex from Hat provider env", async (t) => {
+    const hats = setupIsolatedHats(t);
+    const codexHome = join(hats.home, "codex-home");
+    hats.writeConfig(
+      `[profiles.work]\nlaunch = "claude"\nenv = { CODEX_HOME = "${codexHome}", OPENAI_BASE_URL = "https://gateway.example/v1", OPENAI_API_KEY = "secret" }\n`,
+    );
+    hats.writeCommand("codex", "#!/usr/bin/env node\nconsole.log(JSON.stringify(process.argv.slice(2)))\n");
+    const codex = join(hats.home, "bin", "codex");
+
+    const r = await hats.run(["work", "--", codex, "-m", "gpt-test"]);
+
+    assert.equal(r.code, 0, r.stderr);
+    const args = JSON.parse(r.stdout) as string[];
+    const id = args[1].slice('model_provider="'.length, -1);
+    assert.match(id, /^hats-[a-f0-9]{64}$/);
+    assert.deepEqual(args, [
+      "-c", `model_provider=${JSON.stringify(id)}`,
+      "-c", `model_providers.${id}.name="Hats"`,
+      "-c", `model_providers.${id}.base_url="https://gateway.example/v1"`,
+      "-c", `model_providers.${id}.env_key="OPENAI_API_KEY"`,
+      "-m", "gpt-test",
+    ]);
+
+    const exec = await hats.run(["exec", "work", "--", codex]);
+    assert.equal(exec.code, 0, exec.stderr);
+    assert.equal(exec.stdout, "[]\n");
+  });
+});
+
 describe("integration: hat shorthand", () => {
+  test("`hats <hat> -- <command>` replaces the default launch command", async () => {
+    const defaultScript = join(tmpHome, "default.mjs");
+    const replacementScript = join(tmpHome, "replacement.mjs");
+    writeFileSync(defaultScript, "console.log('default')\n");
+    writeFileSync(replacementScript, "console.log(process.argv.slice(2).join('|'))\n");
+    writeFileSync(
+      join(tmpHome, "config.toml"),
+      `${CONFIG_TOML}\n[profiles.work]\nlaunch = "node ${defaultScript}"\n`,
+    );
+
+    const r = await runCli(["work", "--", "node", replacementScript, "--model", "gpt 5"], childEnv());
+
+    assert.equal(r.code, 0, `stderr: ${r.stderr}`);
+    assert.equal(r.stdout.trim(), "--model|gpt 5");
+  });
+
+  test("`hats <hat> --` rejects an empty replacement command", async () => {
+    const r = await runCli(["relay", "--"], childEnv());
+
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /replacement command is empty/);
+  });
+
+  test("does not silently discard default-command args before `--`", async () => {
+    const r = await runCli(["relay", "old-arg", "--", "node", "-e", "process.exit(0)"], childEnv());
+
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /-- must immediately follow the hat name/);
+  });
+
   test("`hats <hat>` runs the hat and preserves trailing args", async () => {
     const script = join(tmpHome, "argv.mjs");
     writeFileSync(script, "console.log(process.argv.slice(2).join('|'))\n");
