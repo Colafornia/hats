@@ -21,8 +21,8 @@ describe("Codex provider adapter", () => {
   test("injects a process-local provider and preserves model arguments", () => {
     const { home, env } = fixture();
     try {
-      const argv = adaptCodex("工作.hat", ["/opt/bin/codex", "-m", "gpt-test"], env);
-      const id = "hats-f36edb208ada2d3f1ad5c4e6497cbbaf36e0af034d17d1fa94af68835cf02ccc";
+      const argv = adaptCodex("café.hat", ["/opt/bin/codex", "-m", "gpt-test"], env);
+      const id = "hats-3f515fc9f389a544c7e8be985c393a83d688d1a0f270af8162f1910fec19be37";
       assert.deepEqual(argv, [
         "/opt/bin/codex",
         "-c", `model_provider=${JSON.stringify(id)}`,
