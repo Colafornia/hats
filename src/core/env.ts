@@ -1,8 +1,9 @@
 import { readFileSync, existsSync } from "node:fs";
+import { basename } from "node:path";
 import { parse as parseDotenv } from "dotenv";
 import type { Profile } from "./config.js";
 import { expandTilde, resolveForRun, refKind } from "./resolve.js";
-import { TOOL_CREDENTIAL_ENV, TOOL_HOME_VARS } from "./tools.js";
+import { CredentialStorage, TOOLS, TOOL_CREDENTIAL_ENV, TOOL_HOME_VARS } from "./tools.js";
 
 /**
  * Provider / config prefixes stripped from the *inherited* environment so a
@@ -38,6 +39,8 @@ export interface AssembledEnv {
   env: Record<string, string>;
   /** Resolved config-home var (CLAUDE_CONFIG_DIR / CODEX_HOME / GEMINI_CLI_HOME), if any. */
   configDir?: string;
+  /** An isolated hat launched a command whose CLI state Hats cannot safely isolate. */
+  environmentOnly?: boolean;
   /** Names of inherited provider vars that were stripped (for visibility). */
   stripped: string[];
 }
@@ -49,7 +52,7 @@ export interface AssembledEnv {
  * references (env:/file:/cmd:) are used verbatim (no re-expansion, so a token
  * containing `$` is not mangled).
  */
-export async function assembleEnv(profile: Profile): Promise<AssembledEnv> {
+export async function assembleEnv(profile: Profile, command?: string): Promise<AssembledEnv> {
   const env: Record<string, string> = {};
   const stripped: string[] = [];
   for (const [k, v] of Object.entries(process.env)) {
@@ -99,9 +102,25 @@ export async function assembleEnv(profile: Profile): Promise<AssembledEnv> {
     env[k] = expandVars(expandTilde(env[k]), env);
   }
 
+  const configuredHomeVar = Object.keys(env).find((key) => TOOL_HOME_VARS.has(key));
+  const configuredHome = configuredHomeVar ? env[configuredHomeVar] : undefined;
+  const tool = command ? TOOLS[basename(command)] : undefined;
+  let environmentOnly = false;
+  if (configuredHome && command) {
+    for (const key of TOOL_HOME_VARS) delete env[key];
+    if (
+      tool?.homeVar &&
+      [CredentialStorage.ConfigHome, CredentialStorage.DirectoryKeychain].includes(tool.credentialStorage)
+    ) {
+      env[tool.homeVar] = configuredHome;
+    } else {
+      environmentOnly = true;
+    }
+  }
+
   env.HATS_PROFILE = profile.name;
 
   const configDir = Object.keys(env).find((key) => TOOL_HOME_VARS.has(key));
   const resolvedConfigDir = configDir ? env[configDir] : undefined;
-  return { env, configDir: resolvedConfigDir, stripped };
+  return { env, configDir: resolvedConfigDir, environmentOnly, stripped };
 }

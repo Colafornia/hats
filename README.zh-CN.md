@@ -56,24 +56,22 @@ hats 不修改全局配置。每个 hat 只作用于它启动的进程，因此�
 
 环境变量引用、本地模型和手动配置等进阶用法，请参阅[高级配置](docs/advanced.md)。
 
-## 在多个 CLI 之间共享环境
+## 让多个 CLI 使用同一个环境
 
-如果 Claude 和 Codex 都连接同一个公司网关，可以让多个 hat 共用一份环境变量文件：
+为 hat 设置默认命令；需要换用另一个 CLI 时，在 `--` 后提供替代命令：
 
 ```toml
-[profiles.write]
+[profiles.work]
 launch = "claude"
-env_file = "~/.config/company-ai.env"
-
-[profiles.review]
-launch = "codex"
 env_file = "~/.config/company-ai.env"
 ```
 
 ```bash
-hats write
-hats review  # 在另一个终端中运行
+hats work
+hats work -- codex
 ```
+
+`--` 必须紧跟 hat 名称。没有 `--` 时，后续参数仍会追加到默认命令。
 
 ## 可选：隔离 CLI 状态
 
@@ -92,6 +90,7 @@ hats add personal codex --isolated
 ```text
 hats add [<名称> <命令...>]       创建一个 hat
 hats <hat> [参数...]             启动一个 hat（等同于 hats run <hat>）
+hats <hat> -- <命令...>          替换 hat 的默认启动命令
 hats edit                        在 $EDITOR 中打开配置文件
 hats ls                          列出所有 hat
 ```

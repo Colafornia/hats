@@ -83,6 +83,13 @@ describe("isolation / provider-prefix strip", () => {
     assert.notEqual(a.configDir, b.configDir);
   });
 
+  test("recognizes a replacement CLI by executable basename", async () => {
+    const home = join(tmpdir(), "hats-codex-home");
+    const { env } = await assembleEnv({ name: "a", env: { CLAUDE_CONFIG_DIR: home } }, "/opt/bin/codex");
+    assert.equal(env.CODEX_HOME, home);
+    assert.equal(env.CLAUDE_CONFIG_DIR, undefined);
+  });
+
   test("${VAR} expansion resolves against the assembled env", async () => {
     const profile: Profile = {
       name: "r",

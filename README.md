@@ -63,25 +63,23 @@ the selected hat.
 See [Advanced configuration](docs/advanced.md) for env references, local models, and
 manual configuration.
 
-## Share an environment across CLIs
+## Use one environment across CLIs
 
-Point multiple hats at the same environment file when Claude and Codex use the same
-company gateway:
+Give the hat a default command, then replace it after `--` when you want another CLI:
 
 ```toml
-[profiles.write]
+[profiles.work]
 launch = "claude"
-env_file = "~/.config/company-ai.env"
-
-[profiles.review]
-launch = "codex"
 env_file = "~/.config/company-ai.env"
 ```
 
 ```bash
-hats write
-hats review  # run in another terminal
+hats work
+hats work -- codex
 ```
+
+The `--` boundary must immediately follow the hat name. Without it, trailing arguments
+are appended to the default command.
 
 ## Optional: isolate CLI state
 
@@ -103,6 +101,7 @@ the underlying CLI.
 ```text
 hats add [<name> <command...>]    create a hat
 hats <hat> [args...]              launch a hat (same as hats run <hat>)
+hats <hat> -- <command...>        replace the hat's default command
 hats edit                         open the config in $EDITOR
 hats ls                           list hats
 ```

@@ -51,6 +51,16 @@ env = {
 COMPANY_AI_URL=https://gateway.example
 ```
 
+When the command that Hats actually launches is Codex, a non-empty
+`OPENAI_BASE_URL` and `OPENAI_API_KEY` make the Hat the provider source. Hats passes
+process-local Codex `-c` overrides for `model_provider`, `base_url`, and `env_key`.
+It does not write a profile file, and the secret stays in the process environment. The
+endpoint must support the Responses API.
+
+If a Hat contains provider credentials but lacks either required Codex value, Hats
+stops before launch instead of inheriting the global Codex provider. An explicit Codex
+`--profile` or `-c model_provider=...` is treated as a user override.
+
 ## Local AI model
 
 Run a local Claude-compatible CLI without inheriting a company gateway:
@@ -174,3 +184,7 @@ profile needs its own supported config home:
 This separates local CLI state; it does not guarantee that multiple OAuth subscriptions
 can coexist. `--isolated` only infers from a bare `codex` or `claude` first token. Set
 the config-home environment variable by hand for wrappers and custom launchers.
+
+For `hats <hat> -- <command>`, hats selects the isolated config-home variable from the
+replacement command. An unknown or unsupported command still receives the hat's
+process-local environment, while the launch banner reports `config: (environment only)`.

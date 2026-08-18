@@ -5,11 +5,12 @@ import { loadConfig, type Profile } from "../core/config.js";
 import { getProfile } from "../core/profile.js";
 import { assembleEnv } from "../core/env.js";
 import { parseLaunch, runChild } from "../core/spawn.js";
+import { adaptCodex } from "../core/codex.js";
 
-function banner(profile: Profile, env: { configDir?: string; stripped: string[] }): void {
+function banner(profile: Profile, env: { configDir?: string; environmentOnly?: boolean; stripped: string[] }): void {
   const parts: string[] = [`🎩 ${profile.name}`];
   if (profile.desc) parts.push(profile.desc);
-  parts.push(`config: ${env.configDir ?? "(default)"}`);
+  parts.push(`config: ${env.environmentOnly ? "(environment only)" : env.configDir ?? "(default)"}`);
   if (env.stripped.length) parts.push(`stripped ${env.stripped.length}`);
   // eslint-disable-next-line no-console
   console.error(`\x1b[36m${parts.join(" · ")}\x1b[0m`);
@@ -63,11 +64,8 @@ async function launch(
   profile: Profile,
   extraArgs: string[],
   override?: string[],
+  track = true,
 ): Promise<number> {
-  const { env, ...summary } = await assembleEnv(profile);
-  if (summary.configDir) mkdirSync(summary.configDir, { recursive: true });
-  banner(profile, { configDir: summary.configDir, stripped: summary.stripped });
-
   let argv: string[];
   if (override && override.length) {
     argv = override;
@@ -78,8 +76,13 @@ async function launch(
   }
   argv = [...argv, ...extraArgs];
 
+  const { env, ...summary } = await assembleEnv(profile, override && track ? argv[0] : undefined);
+  if (track) argv = adaptCodex(profile.name, argv, env);
+  if (summary.configDir) mkdirSync(summary.configDir, { recursive: true });
+  banner(profile, summary);
+
   const run = () => runChild(argv, { env });
-  return override ? run() : withHerdrHat(profile.name, () => withTmuxHat(profile.name, run));
+  return track ? withHerdrHat(profile.name, () => withTmuxHat(profile.name, run)) : run();
 }
 
 export const runCommand = new Command("run")
@@ -90,7 +93,12 @@ export const runCommand = new Command("run")
   .action(async (name: string, args: string[]) => {
     const cfg = loadConfig(name);
     const profile = getProfile(cfg, name);
-    const code = await launch(profile, args);
+    const boundary = process.argv.indexOf("--", 2);
+    const hatIndex = process.argv[2] === "run" ? 3 : 2;
+    if (boundary > hatIndex + 1) throw new Error("-- must immediately follow the hat name");
+    const override = boundary < 0 ? undefined : process.argv.slice(boundary + 1);
+    if (override?.length === 0) throw new Error("replacement command is empty");
+    const code = await launch(profile, override ? [] : args, override);
     process.exit(code);
   });
 
@@ -107,6 +115,6 @@ export const execCommand = new Command("exec")
       console.error("exec requires a command. Usage: hats exec <hat> -- <cmd> [args...]");
       process.exit(2);
     }
-    const code = await launch(profile, [], args);
+    const code = await launch(profile, [], args, false);
     process.exit(code);
   });
